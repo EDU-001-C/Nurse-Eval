@@ -30,48 +30,6 @@
         th { cursor: pointer; white-space: nowrap; }
         .swal2-popup { font-family: 'Sarabun'; }
         :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; }
-
-        /* ---------- Sticky header สำหรับหน้า "แบบประเมินของฉัน" ---------- */
-        :root {
-            --app-header-height: 64px;
-            --docs-progress-height: 76px;
-        }
-        .app-main-header {
-            position: sticky;
-            top: 0;
-            z-index: 80;
-        }
-        .docs-progress-sticky {
-            position: sticky;
-            top: var(--app-header-height);
-            z-index: 70;
-            height: var(--docs-progress-height);
-            background: var(--bg);
-        }
-        .docs-progress-sticky > .bg-white {
-            height: 100%;
-            box-sizing: border-box;
-        }
-        .docs-sticky-table {
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-        .docs-sticky-table thead th {
-            position: sticky;
-            top: calc(var(--app-header-height) + var(--docs-progress-height));
-            z-index: 60;
-            background: #e8f6f0 !important;
-            box-shadow: 0 1px 0 rgba(31,41,55,.08);
-        }
-        .docs-sticky-table tbody td {
-            background: #fff;
-        }
-        @media (max-width: 1023px) {
-            :root {
-                --app-header-height: 60px;
-                --docs-progress-height: 76px;
-            }
-        }
         
         @media print {
             body * { visibility: hidden; }
@@ -448,7 +406,7 @@
                     </div>
                 </aside>
                 <div class="flex-1 min-w-0 flex flex-col">
-                    <header class="app-main-header bg-white/80 backdrop-blur px-4 py-3 flex items-center gap-3 shadow-sm no-print">
+                    <header class="bg-white/80 backdrop-blur sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-sm no-print">
                         <button onclick="tgSidebar()" class="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors">${ico(I.menu)}</button>
                         <div class="font-semibold flex-1 truncate text-lg">${menus().find(m => m[0] == p)[1]}</div>
                         <div class="text-sm text-right"><div class="font-medium">${ME.n}</div>${badge(ME.role == 'admin' ? 'ผู้ดูแลระบบ' : ME.pos, '#3BB489')}</div>
@@ -493,7 +451,7 @@
             const st = S[id] = S[id] || { p: 1, k: null, d: 1, n: o.n || 25 };
             if (st.k != null) rows = [...rows].sort((a, b) => String(a[st.k]).localeCompare(String(b[st.k]), 'th', { numeric: true }) * st.d);
             const pg = Math.max(1, Math.ceil(rows.length / st.n)); st.p = Math.min(st.p, pg); const sl = rows.slice((st.p - 1) * st.n, st.p * st.n);
-            return `<div class="overflow-x-auto"><table class="w-full text-sm${o.stickyHead ? " docs-sticky-table" : ""}"><thead><tr class="bg-[#e8f6f0] text-left">${cols.map(c => `<th class="p-3" onclick="srt('${id}','${c[0]}')">${c[1]} ⇅</th>`).join('')}${o.act ? '<th class="p-3 no-print">จัดการ</th>' : ''}</tr></thead><tbody>${sl.map(r => `<tr class="border-b hover:bg-gray-50">${cols.map(c => `<td class="p-3">${c[2] ? c[2](r) : esc(r[c[0]])}</td>`).join('')}${o.act ? `<td class="p-3 whitespace-nowrap no-print">${o.act(r)}</td>` : ''}</tr>`).join('') || `<tr><td colspan="9" class="p-6 text-center text-gray-400">ไม่พบข้อมูล</td></tr>`}</tbody></table></div><div class="flex justify-between items-center mt-3 text-sm no-print"><span>ทั้งหมด ${rows.length} รายการ</span><div class="flex gap-2 items-center"><button class="px-3 py-1 rounded-lg bg-gray-100" onclick="pgx('${id}',-1)">‹</button>${st.p}/${pg}<button class="px-3 py-1 rounded-lg bg-gray-100" onclick="pgx('${id}',1)">›</button></div></div>`;
+            return `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#e8f6f0] text-left">${cols.map(c => `<th class="p-3" onclick="srt('${id}','${c[0]}')">${c[1]} ⇅</th>`).join('')}${o.act ? '<th class="p-3 no-print">จัดการ</th>' : ''}</tr></thead><tbody>${sl.map(r => `<tr class="border-b hover:bg-gray-50">${cols.map(c => `<td class="p-3">${c[2] ? c[2](r) : esc(r[c[0]])}</td>`).join('')}${o.act ? `<td class="p-3 whitespace-nowrap no-print">${o.act(r)}</td>` : ''}</tr>`).join('') || `<tr><td colspan="9" class="p-6 text-center text-gray-400">ไม่พบข้อมูล</td></tr>`}</tbody></table></div><div class="flex justify-between items-center mt-3 text-sm no-print"><span>ทั้งหมด ${rows.length} รายการ</span><div class="flex gap-2 items-center"><button class="px-3 py-1 rounded-lg bg-gray-100" onclick="pgx('${id}',-1)">‹</button>${st.p}/${pg}<button class="px-3 py-1 rounded-lg bg-gray-100" onclick="pgx('${id}',1)">›</button></div></div>`;
         }
         const srt = (i, k) => { const s = S[i]; s.d = s.k == k ? -s.d : 1; s.k = k; V[CUR](); };
         const pgx = (i, d) => { S[i].p += d; if (S[i].p < 1) S[i].p = 1; V[CUR](); };
@@ -744,8 +702,8 @@
                 (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).forEach(t => add('ประเมินอาจารย์ผู้สอน', tI(t)));
             });
             const n = T.filter(t => t.done).length, pc = T.length ? Math.round(n / T.length * 100) : 0;
-            $('#mn').innerHTML = `<div class="docs-progress-sticky">${box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${T.length} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`).replace('mt-4', '')}</div>` +
-                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { stickyHead: true, act: r => r.done ? '' : `<button class="btn !px-3 !py-1" style="background:#3BB489" onclick="doEval('${esc(r.code)}','${r.type}','${esc(r.teacher)}','${esc(r.sem)}','${esc(r.yr)}')">ประเมิน</button>` })) +
+            $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${T.length} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`).replace('mt-4', '') +
+                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class="btn !px-3 !py-1" style="background:#3BB489" onclick="doEval('${esc(r.code)}','${r.type}','${esc(r.teacher)}','${esc(r.sem)}','${esc(r.yr)}')">ประเมิน</button>` })) +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         async function doEval(code, type, teacher, sem, yr) {
