@@ -128,7 +128,7 @@
             try {
                 D.admins = N(d.admins); D.users = N(d.users); D.qs = N(d.qs); 
                 D.docs = N(d.docs).map(x => ({ ...x, score: +x.score })); D.logs = N(d.logs); 
-                D.courses = d.courses || [];
+                D.courses = d.courses || []; normCourses();
                 D.enrollments = d.enrollments || [];
                 D.teaching = d.teaching || [];
                 if ((d.positions||[]).length) D.positions = d.positions.map(x => x.name);
@@ -626,6 +626,9 @@
 
         /* ---------- LINKED DATA: courses / teaching / enrollments / docs ---------- */
         let PWBAD = 0;
+        // แปลงชีต courses เดิม (course_code/course_name/หน่วยกิต, id ซ้ำ) ให้เป็นรูปแบบมาตรฐาน {id, code, name, credits}
+        const normCourses = () => { const seen = new Set(); let mx = 0; (D.courses || []).forEach(c => mx = Math.max(mx, +c.id || 0));
+            D.courses = (D.courses || []).filter(c => G(c, 'code', 'course_code')).map(c => { let id = +c.id; if (!id || seen.has(id)) id = ++mx; seen.add(id); return { id, code: G(c, 'code', 'course_code'), name: G(c, 'name', 'course_name'), credits: G(c, 'credits', 'หน่วยกิต') }; }); };
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const G = (o, ...k) => { for (const x of k) if (o && o[x] !== undefined && o[x] !== '') return String(o[x]).trim(); return ''; };
         const eS = e => G(e, 'studentId', 'student_id', 'u'), eC = e => G(e, 'courseCode', 'course_code', 'course'), eSem = e => G(e, 'semester', 'sem'), eY = e => G(e, 'academic_year', 'academicYear', 'year'), tI = t => G(t, 'instructorId', 'instructor_id', 'u', 'teacher');
@@ -944,6 +947,7 @@
 
         /* ---------- init ---------- */
         const initLoad = () => {
+            normCourses();
             // 1) แสดงหน้าเว็บทันทีจาก localStorage cache (ไม่ต้องรอดึงข้อมูลจาก Sheet)
             try {
                 const saved = JSON.parse(sessionStorage.getItem('nsys_me'));
