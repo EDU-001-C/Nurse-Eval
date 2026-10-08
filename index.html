@@ -138,6 +138,7 @@
         
         const log = a => { D.logs.unshift({ id: Date.now(), t: new Date().toLocaleString('th-TH'), u: ME ? ME.n : '-', uid: ME ? ME.u : '-', a, ip: IP }); D.logs = D.logs.slice(0, 500); save(); };
         const nid = a => Math.max(0, ...a.map(x => x.id)) + 1;
+        const ACTIVE = ['ปฏิบัติงาน', 'ยังศึกษาอยู่', ''], isOn = u => ACTIVE.includes(u.st || '');
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const SALT = 'nsys-v2';
         const hp = async p => { p = String(p); if (p.startsWith('h$')) return p; try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + p)); return 'h$' + [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return p; } };
@@ -148,7 +149,7 @@
         const err = t => Swal.fire({ icon: 'error', title: t, confirmButtonColor: '#3BB489' });
         const cf = t => Swal.fire({ title: t, icon: 'warning', showCancelButton: true, confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#EF5350' }).then(r => r.isConfirmed);
         const badge = (t, c) => `<span class="px-2.5 py-0.5 rounded-full text-xs font-medium text-white" style="background:${c}">${t}</span>`;
-        const stB = s => badge(s, s == 'ปฏิบัติงาน' ? '#3BB489' : s == 'ลาออก' ? '#EF5350' : '#F57C00');
+        const stB = s => badge(s, ACTIVE.includes(s) ? '#3BB489' : s == 'ลาออก' ? '#EF5350' : '#F57C00');
         const ico = (n) => `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">${n}</svg>`;
         
         const I = { dash: '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>', inst: '<path d="M3 21h18M5 21V10l7-6 7 6v11M9 21v-6h6v6"/>', book: '<path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15zM8 7h8M8 11h5"/>', adm: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', usr: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 100-6M22 20c0-3-2-5-4-5.5"/>', q: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 115 0c0 2-2.5 2-2.5 4M12 17h.01"/>', doc: '<path d="M14 3H6a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V8zM14 3v5h5M9 13h6M9 17h6"/>', rep: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', log: '<path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/>', out: '<path d="M9 21H5a1 1 0 01-1-1V4a1 1 0 011-1h4M16 17l5-5-5-5M21 12H9"/>', menu: '<path d="M4 6h16M4 12h16M4 18h16"/>', lock: '<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>' };
@@ -186,7 +187,7 @@
                 const a = D.admins.find(m), s = D.users.find(m);
                 const x = a || s;
                 if (!x) return err('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); if (x.p != ph) x.p = ph;
-                if ((x.st || 'ปฏิบัติงาน') != 'ปฏิบัติงาน') return err('สถานะ "' + x.st + '" ไม่สามารถเข้าสู่ระบบได้');
+                if (!isOn(x)) return err('สถานะ "' + x.st + '" ไม่สามารถเข้าสู่ระบบได้');
                 ME = { ...x, role: a ? 'admin' : (x.pos == 'นักศึกษา' ? 'student' : 'teacher') };
                 log('เข้าสู่ระบบ');
                 go('dash'); idleReset();
@@ -356,8 +357,8 @@
             dash() {
                 const m = $('#mn');
                 if (ME.role == 'admin') {
-                    const stUsers = D.users.filter(u => u.pos == 'นักศึกษา' && u.st == 'ปฏิบัติงาน');
-                    const t = D.users.filter(u => u.pos == 'อาจารย์' && u.st == 'ปฏิบัติงาน').length;
+                    const stUsers = D.users.filter(u => u.pos == 'นักศึกษา' && isOn(u));
+                    const t = D.users.filter(u => u.pos == 'อาจารย์' && isOn(u)).length;
                     const cList = D.courses || [];
                     const courseEvalDocs = D.docs.filter(d => d.type == 'ประเมินรายวิชา');
                     const targetTotal = (stUsers.length * cList.length) || 1;
@@ -420,7 +421,7 @@
                     const t = av(my.map(d => d.score));
                     
                     const myCourses = (D.courses || []).filter(c => c.teacher == ME.u || (c.tname && c.tname.includes(ME.n)));
-                    const stCount = D.users.filter(u => u.pos == 'นักศึกษา' && u.st == 'ปฏิบัติงาน').length || 1;
+                    const stCount = D.users.filter(u => u.pos == 'นักศึกษา' && isOn(u)).length || 1;
                     const myTarget = (myCourses.length || 1) * stCount;
                     const myRespSet = new Set(D.docs.filter(d => (d.teacher == ME.u || myCourses.some(mc => d.course.includes(mc.code)))).map(d => d.uid + '_' + d.course));
                     const tRate = Math.min(100, +((myRespSet.size / myTarget) * 100).toFixed(1));
@@ -560,7 +561,7 @@
                 const all = D.docs.filter(d => d.type == f.ty && (!T || d.teacher == ME.u)), U = k => [...new Set(all.map(d => d[k]).filter(Boolean))].sort(), tl = [...new Map(all.filter(d => d.teacher).map(d => [d.teacher, d.tname])).entries()];
                 const rows = all.filter(d => (!f.t || d.teacher == f.t) && (!f.c || d.course == f.c) && (!f.s || d.sem == f.s) && (!f.y || d.year == f.y));
                 
-                const stTotal = D.users.filter(u => u.pos == 'นักศึกษา' && u.st == 'ปฏิบัติงาน').length || 1;
+                const stTotal = D.users.filter(u => u.pos == 'นักศึกษา' && isOn(u)).length || 1;
                 const uniqueResp = new Set(rows.map(d => d.uid)).size;
                 const respRate = Math.min(100, +((uniqueResp / stTotal) * 100).toFixed(1));
                 
@@ -697,7 +698,7 @@
         async function saveInst() { await busy(async () => { D.inst.name = $('#in').value; D.inst.org = $('#io').value; D.inst.logo = $('#ip').src; save(); log('แก้ไขข้อมูลหลักสูตร'); }); ok('บันทึกแล้ว'); go('inst'); }
         async function cAdm(id) { const o = D.admins.find(x => x.id == id), v = await form(o ? 'แก้ไขผู้ดูแล' : 'เพิ่มผู้ดูแล', [{ k: 'u', l: 'Username' }, { k: 'p', l: 'Password' }, { k: 'n', l: 'ชื่อ-นามสกุล' }], o); if (!v) return; v.p = await hp(v.p); await busy(async () => { if (o) Object.assign(o, v); else D.admins.push({ id: nid(D.admins), st: 'ปฏิบัติงาน', ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'ผู้ดูแล ' + v.u); }); ok('สำเร็จ'); V.adm(); }
         async function dAdm(id) { if (D.admins.length < 2) return err('ต้องมีผู้ดูแลอย่างน้อย 1 คน'); if (!await cf('ลบผู้ดูแลนี้?')) return; await busy(async () => { D.admins = D.admins.filter(x => x.id != id); save(); log('ลบผู้ดูแล'); }); ok('ลบแล้ว'); V.adm(); }
-        async function cUsr(id) { const o = D.users.find(x => x.id == id), v = await form(o ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้', [{ k: 'u', l: 'Username' }, { k: 'p', l: 'Password' }, { k: 'n', l: 'ชื่อ-นามสกุล' }, { k: 'email', l: 'อีเมล (สำหรับแจ้งเตือน)', opt: 1, t: 'email' }, { k: 'pos', l: 'ตำแหน่ง', o: D.positions }, { k: 'st', l: 'สถานะ', o: ['ปฏิบัติงาน', 'ย้ายออก', 'ลาออก'] }], o); if (!v) return; v.p = await hp(v.p); await busy(async () => { if (o) Object.assign(o, v); else D.users.push({ id: nid(D.users), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'ผู้ใช้ ' + v.u); }); ok('สำเร็จ'); V.usr(); }
+        async function cUsr(id) { const o = D.users.find(x => x.id == id), v = await form(o ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้', [{ k: 'u', l: 'Username' }, { k: 'p', l: 'Password' }, { k: 'n', l: 'ชื่อ-นามสกุล' }, { k: 'email', l: 'อีเมล (สำหรับแจ้งเตือน)', opt: 1, t: 'email' }, { k: 'pos', l: 'ตำแหน่ง', o: D.positions }, { k: 'st', l: 'สถานะ', o: ['ปฏิบัติงาน', 'ยังศึกษาอยู่', 'สำเร็จการศึกษา', 'พักการศึกษา', 'ย้ายออก', 'ลาออก'] }], o); if (!v) return; v.p = await hp(v.p); await busy(async () => { if (o) Object.assign(o, v); else D.users.push({ id: nid(D.users), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'ผู้ใช้ ' + v.u); }); ok('สำเร็จ'); V.usr(); }
         async function dUsr(id) { if (!await cf('ลบผู้ใช้นี้?')) return; await busy(async () => { D.users = D.users.filter(x => x.id != id); save(); log('ลบผู้ใช้'); }); ok('ลบแล้ว'); V.usr(); }
         
         const H = ['username', 'password', 'ชื่อ-นามสกุล', 'อีเมล', 'ตำแหน่ง', 'สถานะ'];
@@ -711,7 +712,7 @@
         /* Course Master Actions */
         async function cCourse(id) {
             const o = (D.courses || []).find(x => x.id == id);
-            const teachers = D.users.filter(u => u.pos == 'อาจารย์' && u.st == 'ปฏิบัติงาน');
+            const teachers = D.users.filter(u => u.pos == 'อาจารย์' && isOn(u));
             const teacherOpts = teachers.map(t => `<option value="${t.u}" ${o && o.teacher == t.u ? 'selected' : ''}>${t.n}</option>`).join('');
             
             const r = await Swal.fire({
@@ -834,7 +835,7 @@
         }
 
         async function newDoc(preCourse) {
-            const th = D.users.filter(u => u.pos == 'อาจารย์' && u.st == 'ปฏิบัติงาน');
+            const th = D.users.filter(u => u.pos == 'อาจารย์' && isOn(u));
             const cList = D.courses || [];
             const cOpts = cList.map(c => `
                 <option value="${c.code} ${c.name}" ${preCourse && (preCourse == c.code || preCourse == c.name || preCourse.includes(c.code)) ? 'selected' : ''}>
