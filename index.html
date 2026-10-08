@@ -650,9 +650,16 @@
         const courseOpts = () => (D.courses || []).map(c => cCode(c) + ' - ' + G(c, 'name', 'course_name'));
         async function cTeach() {
             const th = D.users.filter(u => String(u.pos || '').trim() !== 'นักศึกษา' && u.st !== 'ลาออก');
-            const v = await form('มอบหมายอาจารย์ผู้สอน', [{ k: 'courseCode', l: 'รายวิชา', o: courseOpts() }, { k: 'instructorId', l: 'อาจารย์ผู้สอน', o: th.map(u => u.u + ' - ' + u.n) }, { k: 'semester', l: 'ภาคการศึกษา', o: ['1', '2', '3'] }, { k: 'academic_year', l: 'ปีการศึกษา (พ.ศ.)', t: 'number' }], { academic_year: new Date().getFullYear() + 543 });
-            if (!v) return; v.courseCode = pick(v.courseCode); v.instructorId = pick(v.instructorId);
-            D.teaching = D.teaching || []; D.teaching.push({ id: nid(D.teaching), ...v }); save('teaching'); log('มอบหมายอาจารย์ ' + v.instructorId + ' → ' + v.courseCode); ok('สำเร็จ'); V.teach();
+            const r = await Swal.fire({
+                title: 'มอบหมายอาจารย์ผู้สอน', width: 560, showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
+                html: `<div class="text-left space-y-2"><div><label class="text-sm">รายวิชา</label><select id="t_c" class="inp">${courseOpts().map(o => `<option>${esc(o)}</option>`).join('')}</select></div>
+                <div><label class="text-sm">อาจารย์ผู้สอน (เลือกได้หลายคน)</label><input class="inp mb-1" placeholder="ค้นหาชื่อ..." oninput="document.querySelectorAll('.t_i').forEach(e=>e.style.display=e.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')"><div id="t_l" class="border rounded-lg p-2 max-h-48 overflow-y-auto">${th.map(u => `<label class="t_i flex gap-2 items-center py-1 text-sm cursor-pointer"><input type="checkbox" value="${esc(u.u)}"><span>${esc(u.n)}</span></label>`).join('')}</div></div>
+                <div class="grid grid-cols-2 gap-2"><div><label class="text-sm">ภาคการศึกษา</label><select id="t_s" class="inp"><option>1</option><option>2</option><option>3</option></select></div><div><label class="text-sm">ปีการศึกษา (พ.ศ.)</label><input id="t_y" type="number" class="inp" value="${new Date().getFullYear() + 543}"></div></div></div>`,
+                preConfirm: () => { const ids = [...document.querySelectorAll('#t_l input:checked')].map(x => x.value), c = pick($('#t_c').value), y = $('#t_y').value.trim(); if (!c || !y) { Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบ'); return false; } if (!ids.length) { Swal.showValidationMessage('กรุณาเลือกอาจารย์อย่างน้อย 1 คน'); return false; } return { c, ids, s: $('#t_s').value, y }; }
+            });
+            if (!r.isConfirmed) return; const v = r.value; D.teaching = D.teaching || []; let n = 0;
+            v.ids.forEach(i => { if (!D.teaching.some(t => tI(t) == i && eC(t) == v.c && eSem(t) == v.s && eY(t) == v.y)) { D.teaching.push({ id: nid(D.teaching), courseCode: v.c, instructorId: i, semester: v.s, academic_year: v.y }); n++; } });
+            save('teaching'); log('มอบหมายอาจารย์ ' + n + ' คน → ' + v.c); ok(n ? 'เพิ่ม ' + n + ' คน' : 'มีรายการนี้อยู่แล้ว'); V.teach();
         }
         async function cEnr() {
             const st = D.users.filter(u => String(u.pos || '').trim() === 'นักศึกษา');
