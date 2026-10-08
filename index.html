@@ -36,6 +36,12 @@
         .rt input:checked + span { background: #3BB489; border-color: #3BB489; color: #fff; box-shadow: 0 4px 10px #3bb48955; }
         .rt input:focus-visible + span { outline: 3px solid #3bb48966; }
         .eval-popup { font-family: 'Sarabun', sans-serif; }
+        span.rounded-full { white-space: nowrap; display: inline-block; }
+        .tbl-docs table { table-layout: fixed; width: 100%; min-width: 980px; }
+        .tbl-docs th, .tbl-docs td { padding: .85rem .75rem; vertical-align: middle; }
+        .tbl-docs th:nth-child(2) { width: 210px; } .tbl-docs th:nth-child(3) { width: 130px; }
+        .tbl-docs th:nth-child(4) { width: 100px; } .tbl-docs th:nth-child(5) { width: 200px; } .tbl-docs th:nth-child(6) { width: 120px; }
+        .tbl-docs td:nth-child(1) { line-height: 1.5; }
         .eval-popup .swal2-html-container { max-height: 68vh; overflow-y: auto; text-align: left; margin: 1em 1.2em .3em; }
         .eval-row { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; justify-content: space-between; padding: 1rem .5rem; border-bottom: 1px solid #e5e7eb; }
         .eval-row:last-child { border-bottom: 0; }
@@ -837,17 +843,19 @@
         V.docs = () => {
             const T = [];
             (D.enrollments || []).filter(e => eS(e) === ME.u).forEach(e => {
-                const code = eC(e), sem = eSem(e), yr = eY(e);
+                const code = eC(e), sem = eSem(e), yr = eY(e), nm = courseOf(code).name;
                 // ประเมินรายวิชา
-                T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินรายวิชา', teachers: [], done: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) });
-                // ประเมินอาจารย์ (รวมเป็นแถวเดียวต่อวิชา)
-                const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t));
-                if (teachers.length) T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.map(uName).join(', '), done: teachers.every(tid => D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == tid)) });
+                T.push({ code, name: nm, sem, yr, type: 'ประเมินรายวิชา', teachers: [], tname: '-', units: 1, got: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) ? 1 : 0 });
+                // ประเมินอาจารย์ (หนึ่งแถวต่อวิชา เข้าไปเลือกประเมินทีละท่าน)
+                const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t)).filter((x, i, a) => x && a.indexOf(x) === i);
+                if (teachers.length) T.push({ code, name: nm, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.length + ' ท่าน', units: teachers.length, got: teachers.filter(tid => tDone(code, sem, yr, tid)).length });
             });
-            MYT = T; T.forEach((r, i) => r.i = i);
-            const n = T.filter(t => t.done).length, pc = T.length ? Math.round(n / T.length * 100) : 0;
-            $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${T.length} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`).replace('mt-4', '') +
-                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class="btn !px-3 !py-1" style="background:#3BB489" onclick="doEvalI(${r.i})">ประเมิน</button>` })) +
+            T.forEach((r, i) => { r.i = i; r.done = r.got >= r.units; });
+            MYT = T;
+            const tot = T.reduce((s, r) => s + r.units, 0), n = T.reduce((s, r) => s + r.got, 0), pc = tot ? Math.round(n / tot * 100) : 0;
+            const st = r => r.done ? badge('ประเมินแล้ว', '#3BB489') : r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('ประเมินแล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : badge('ยังไม่ประเมิน', '#F57C00');
+            $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div><div class="text-xs text-gray-500 mt-2">นับรายวิชา 1 รายการ และอาจารย์ผู้สอนรายท่าน ท่านละ 1 รายการ</div>`).replace('mt-4', '') +
+                box('<div class="tbl-docs">' + dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname)], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', st]], T, { act: r => r.done ? '' : `<button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${r.type === 'ประเมินรายวิชา' ? 'ประเมิน' : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์')}</button>` }) + '</div>') +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         
@@ -921,8 +929,26 @@
         });
 
             
+        const tDone = (code, sem, yr, tid) => (D.docs || []).some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == String(tid));
+        // รายชื่ออาจารย์ของวิชา: เลือกประเมินทีละท่าน เสร็จแล้วกลับมาที่รายชื่อ
+        async function teacherList(code, sem, yr, teachers) {
+            const c = courseOf(code);
+            while (true) {
+                const rows = teachers.map(tid => ({ tid, done: tDone(code, sem, yr, tid) })), k = rows.filter(r => r.done).length;
+                if (k === rows.length) break;
+                let chosen = null;
+                await Swal.fire({
+                    title: 'เลือกอาจารย์ที่จะประเมิน', width: 'min(780px, 96vw)', customClass: { popup: 'eval-popup' }, showConfirmButton: false, showCancelButton: true, cancelButtonText: 'ปิด',
+                    html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)} · ประเมินแล้ว <b>${k}/${rows.length}</b> ท่าน</div><div class="text-sm text-gray-500 mb-2">ประเมินทีละท่าน และให้คะแนนแต่ละท่านแยกกัน ส่งแล้วจะกลับมาที่รายชื่อนี้</div><div class="border rounded-xl">${rows.map(r => `<div class="flex items-center justify-between gap-3 px-4 py-3 border-b" style="${r.done ? 'background:#f9fafb' : ''}"><span class="text-lg" style="${r.done ? 'color:#9ca3af' : ''}">${esc(uName(r.tid))}</span>${r.done ? '<span class="font-semibold" style="color:#3BB489;white-space:nowrap">✓ ประเมินแล้ว</span>' : `<button type="button" class="btn pick-t" data-t="${esc(r.tid)}" style="background:#3BB489;white-space:nowrap">ประเมิน</button>`}</div>`).join('')}</div></div>`,
+                    didOpen: () => document.querySelectorAll('.pick-t').forEach(b => b.onclick = () => { chosen = b.dataset.t; Swal.close(); })
+                });
+                if (!chosen) break;
+                await doEval(code, 'ประเมินอาจารย์ผู้สอน', [chosen], sem, yr);
+            }
+            V.docs();
+        }
         let MYT = [];
-        const doEvalI = i => { const r = MYT[i]; if (r) return doEval(r.code, r.type, r.teachers, r.sem, r.yr); };
+        const doEvalI = i => { const r = MYT[i]; if (!r) return; return r.type === 'ประเมินรายวิชา' ? doEval(r.code, r.type, [], r.sem, r.yr) : teacherList(r.code, r.sem, r.yr, r.teachers); };
         async function doEval(code, type, teachers, sem, yr) {
             // ตรวจสอบว่าผู้ใช้ลงทะเบียนวิชานี้จริงๆ
             const enrolledHere = (D.enrollments || []).some(e => eS(e) === ME.u && eC(e).toUpperCase() === code.toUpperCase() && eSem(e) === sem && eY(e) === yr);
@@ -933,15 +959,9 @@
             if (!qs.length) return err('ยังไม่มีคำถามประเมินสำหรับรายการนี้ กรุณาติดต่อผู้ดูแลระบบ');
 
             teachers = Array.isArray(teachers) ? teachers : [];
-            let selectedTeachers = isC ? [] : teachers;
-            if (!isC && teachers.length > 1) {
-                const r = await Swal.fire({
-                    title: 'เลือกอาจารย์ที่ต้องการประเมิน', width: 'min(640px, 96vw)', showCancelButton: true, confirmButtonText: 'ถัดไป ›', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
-                    html: `<div class="text-left space-y-2"><label class="text-base">อาจารย์ผู้สอน (เลือกได้หลายคน)</label><div class="border rounded-lg p-3 max-h-60 overflow-y-auto">${teachers.map(tid => `<label class="flex gap-3 items-center py-2 text-lg cursor-pointer"><input type="checkbox" class="t_sel" style="width:20px;height:20px" value="${esc(tid)}" checked><span>${esc(uName(tid))}</span></label>`).join('')}</div></div>`,
-                    preConfirm: () => { selectedTeachers = [...document.querySelectorAll('.t_sel:checked')].map(x => x.value); if (!selectedTeachers.length) { Swal.showValidationMessage('กรุณาเลือกอาจารย์อย่างน้อย 1 คน'); return false; } return true; }
-                });
-                if (!r.isConfirmed) return;
-            }
+            // ประเมินอาจารย์: ทำทีละท่านเท่านั้น (ให้คะแนนแต่ละท่านแยกกัน) → ถ้าส่งมาหลายคนให้ไปเลือกจากรายชื่อ
+            if (!isC && teachers.length > 1) return teacherList(code, sem, yr, teachers);
+            const selectedTeachers = isC ? [] : teachers;
 
             // แบ่งหน้าตามประเภทคำถาม: โครงสร้างรายวิชา → ก่อนเรียน → หลังเรียน (ประเภทอื่นต่อท้าย)
             const ORDER = ['โครงสร้างรายวิชา', 'คำถามก่อนเรียน', 'คำถามหลังเรียน'], byT = {};
@@ -952,7 +972,7 @@
             const ans = {}; let comment = '';
             const collect = pg => { pg.qs.forEach(q => { const el = document.querySelector(`input[name="q_${q.id}"]:checked`); if (el) ans[q.id] = +el.value; else delete ans[q.id]; }); const cm = $('#dcomment'); if (cm) comment = cm.value; };
             const pageHtml = (pg, i, last) => `<div class="text-left">
-                <div class="p-4 rounded-xl mb-4 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br>👩‍🏫 ประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}` : ''}</div>
+                <div class="p-4 rounded-xl mb-4 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br><span class="text-lg font-semibold" style="color:#4A2C6D">👩‍🏫 อาจารย์ผู้ถูกประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}</span>` : ''}</div>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-1"><h3 class="text-xl font-bold" style="color:#3BB489">${esc(pg.name)}</h3><span class="text-sm text-gray-500">หน้า ${i + 1}/${pages.length}</span></div>
                 <div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด</div>
                 <div class="border rounded-xl">${pg.qs.map(q => `<div class="eval-row"><div class="eval-q">${esc(qText(q))}</div><div class="eval-rt">${[5, 4, 3, 2, 1].map(v => `<label class="rt"><input type="radio" name="q_${q.id}" value="${v}" ${ans[q.id] == v ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div></div>`).join('')}</div>
