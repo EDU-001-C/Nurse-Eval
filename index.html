@@ -530,10 +530,39 @@
         /* ---------- VIEWS ---------- */
         
         // ===== Question CRUD =====
-        async function cQ(id) { const o = D.qs.find(x => x.id == id), v = await form(o ? 'แก้ไขคำถาม' : 'เพิ่มคำถาม', [{ k: 'course_code', l: 'รหัสวิชา (ว่างหรือ ALL สำหรับทุกวิชา)', opt: 1 }, { k: 't', l: 'ประเภท', o: ['CLO', 'LLO', 'อาจารย์'] }, { k: 'question_text', l: 'คำถาม', t: 'textarea' }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.qs.push({ id: nid(D.qs), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'คำถาม'); }); ok('สำเร็จ'); V.qs(); }
+        // ===== คำถามประเมินแยกตามปีการศึกษา =====
+        // กติกา: คำถามที่ไม่ระบุปี = ชุดเริ่มต้นใช้ได้ทุกปี | ถ้าวิชา+ประเภทนั้นมีคำถามของปีที่ประเมินโดยเฉพาะ จะใช้เฉพาะชุดของปีนั้น
+        const qCode = q => String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase();
+        const qYear = q => G(q, 'academic_year', 'academicYear');
+        const qsFor = (code, isCourse, yr) => {
+            const C = String(code || '').trim().toUpperCase(), Y = String(yr || '').trim(), groups = {};
+            (D.qs || []).forEach(q => {
+                const ty = String(q.t || '').trim(), c = qCode(q);
+                if (isCourse === (ty === 'อาจารย์')) return;
+                if (!(!c || c === 'ALL' || c === C)) return;
+                (groups[(c || 'ALL') + '|' + ty] = groups[(c || 'ALL') + '|' + ty] || []).push(q);
+            });
+            return Object.values(groups).flatMap(g => { const sp = g.filter(q => qYear(q) && qYear(q) === Y); return sp.length ? sp : g.filter(q => !qYear(q)); }).sort((a, b) => (+a.id || 0) - (+b.id || 0));
+        };
+        async function copyQ() {
+            const yrs = [...new Set((D.qs || []).map(qYear))].sort(), ey = [...new Set((D.enrollments || []).map(eY).filter(Boolean))].sort();
+            if (!yrs.length) return err('ยังไม่มีคำถามให้คัดลอก');
+            const next = ey.length ? String(Math.max(...ey.map(Number)) + 1) : '';
+            const r = await Swal.fire({
+                title: 'คัดลอกคำถามไปปีการศึกษาใหม่', width: 520, showCancelButton: true, confirmButtonText: 'คัดลอก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
+                html: `<div class="text-left space-y-2"><div><label class="text-sm">คัดลอกจาก</label><select id="cq_f" class="inp">${yrs.map(y => `<option value="${esc(y)}">${y ? 'ปีการศึกษา ' + esc(y) : 'ชุดเริ่มต้น (ไม่ระบุปี)'}</option>`).join('')}</select></div><div><label class="text-sm">ไปยังปีการศึกษา</label><input id="cq_t" class="inp" placeholder="เช่น 2569" value="${esc(next)}"></div><div><label class="text-sm">เฉพาะรหัสวิชา (ว่าง = ทุกวิชา)</label><input id="cq_c" class="inp" placeholder="เช่น 0100500101"></div></div>`,
+                preConfirm: () => { const f = $('#cq_f').value, to = $('#cq_t').value.trim(), c = $('#cq_c').value.trim().toUpperCase(); if (!to) { Swal.showValidationMessage('กรุณากรอกปีการศึกษาปลายทาง'); return false; } if (to === f) { Swal.showValidationMessage('ปีต้นทางและปลายทางต้องไม่เหมือนกัน'); return false; } return { f, to, c }; }
+            });
+            if (!r.isConfirmed) return; const { f, to, c } = r.value; let n = 0;
+            const key = q => [qCode(q), String(q.t || '').trim(), qText(q)].join('|');
+            const have = new Set((D.qs || []).filter(q => qYear(q) === to).map(key));
+            (D.qs || []).filter(q => qYear(q) === f && (!c || qCode(q) === c)).forEach(q => { if (have.has(key(q))) return; D.qs.push({ ...q, id: nid(D.qs), academic_year: to }); n++; });
+            save(); log('คัดลอกคำถามปี ' + (f || 'เริ่มต้น') + ' → ' + to + ' (' + n + ' ข้อ)'); ok(n ? 'คัดลอก ' + n + ' ข้อ' : 'มีคำถามเหล่านี้ในปี ' + to + ' แล้ว'); V.qs();
+        }
+        async function cQ(id) { const o = D.qs.find(x => x.id == id), v = await form(o ? 'แก้ไขคำถาม' : 'เพิ่มคำถาม', [{ k: 'course_code', l: 'รหัสวิชา (ว่างหรือ ALL สำหรับทุกวิชา)', opt: 1 }, { k: 'academic_year', l: 'ปีการศึกษา เช่น 2569 (ว่าง = ใช้ได้ทุกปี)', opt: 1 }, { k: 't', l: 'ประเภท', o: ['CLO', 'LLO', 'อาจารย์'] }, { k: 'question_text', l: 'คำถาม', t: 'textarea' }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.qs.push({ id: nid(D.qs), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'คำถาม'); }); ok('สำเร็จ'); V.qs(); }
         async function dQ(id) { if (!await cf('ลบคำถามนี้?')) return; D.qs = D.qs.filter(x => x.id != id); save(); log('ลบคำถาม'); ok('ลบแล้ว'); V.qs(); }
-        async function expQ() { const rows = D.qs.map(q => ({ course_code: G(q, 'course_code', 'courseCode', 'course'), t: q.t || 'CLO', question_text: q.question_text || q.questionText || q.q || q.text })); const csv = [['course_code', 't', 'question_text'], ...rows.map(r => [r.course_code || '', r.t, r.question_text])].map(x => x.map(s => '"' + String(s).replace(/"/g, '""') + '"').join(',')).join('\n'); download(csv, 'questions.csv', 'text/csv'); }
-        async function impQ(i) { const f = i.files[0]; if (!f) return; await busy(async () => { const c = await f.text(), rows = c.split('\n').slice(1).filter(x => x.trim()); let n = 0; D.qs = D.qs || []; rows.forEach(row => { const [cc, t, qt] = row.split(',').map(x => x.replace(/^"|"$/g, '').replace(/""/g, '"')); if (cc && t && qt) { if (!D.qs.some(q => (G(q, 'course_code', 'courseCode', 'course') || '') === (cc || '') && q.t === t && (q.question_text || q.questionText || q.q || q.text) === qt)) { D.qs.push({ id: nid(D.qs), course_code: cc, t, question_text: qt }); n++; } } }); save(); log('นำเข้าคำถาม ' + n + ' รายการ'); i.value = ''; }); ok('นำเข้าสำเร็จ'); V.qs(); }
+        async function expQ() { const rows = D.qs.map(q => ({ course_code: G(q, 'course_code', 'courseCode', 'course'), academic_year: qYear(q), t: q.t || 'CLO', question_text: q.question_text || q.questionText || q.q || q.text })); const csv = [['course_code', 't', 'question_text', 'academic_year'], ...rows.map(r => [r.course_code || '', r.t, r.question_text, r.academic_year || ''])].map(x => x.map(s => '"' + String(s).replace(/"/g, '""') + '"').join(',')).join('\n'); download(csv, 'questions.csv', 'text/csv'); }
+        async function impQ(i) { const f = i.files[0]; if (!f) return; await busy(async () => { const c = await f.text(), rows = c.split('\n').slice(1).filter(x => x.trim()); let n = 0; D.qs = D.qs || []; rows.forEach(row => { const [cc, t, qt, ay = ''] = row.split(',').map(x => x.replace(/^"|"$/g, '').replace(/""/g, '"')); if (cc && t && qt) { if (!D.qs.some(q => (G(q, 'course_code', 'courseCode', 'course') || '') === (cc || '') && qYear(q) === ay.trim() && q.t === t && (q.question_text || q.questionText || q.q || q.text) === qt)) { D.qs.push({ id: nid(D.qs), course_code: cc, academic_year: ay.trim(), t, question_text: qt }); n++; } } }); save(); log('นำเข้าคำถาม ' + n + ' รายการ'); i.value = ''; }); ok('นำเข้าสำเร็จ'); V.qs(); }
         const download = (data, name, type) => { const blob = new Blob([data], { type }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
         
 
@@ -592,8 +621,14 @@
                 $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">ข้อมูลผู้ใช้งาน</div><div class="flex flex-wrap gap-2"><button class="btn" style="background:#3BB489" onclick="cUsr()">+ เพิ่มผู้ใช้</button><button class="btn" style="background:#0288D1" onclick="expX()">ส่งออก Excel</button><label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel<input type="file" accept=".xlsx,.xls" hidden onchange="impX(this)"></label></div></div>` + dt('usr', [['u', 'Username'], ['p', 'Password', r => '••••'], ['n', 'ชื่อ-นามสกุล'], ['email', 'อีเมล', r => r.email || '-'], ['pos', 'ตำแหน่ง', r => badge(r.pos, r.pos == 'อาจารย์' ? '#0288D1' : '#3BB489')], ['st', 'สถานะ', r => stB(r.st)]], D.users, { act: r => ab(`cUsr(${r.id})`, `dUsr(${r.id})`) + (r.email ? `<button class="btn !px-3 !py-1 mt-1" style="background:#F57C00" onclick="sendNotify(${r.id})">🔔 แจ้งเตือน</button>` : '') }));
             },
             usr() { $('#mn').innerHTML = box(head('จัดการผู้ใช้งาน', '<button class="btn" style="background:#3BB489" onclick="cUsr()">+ เพิ่มผู้ใช้</button><button class="btn" style="background:#0288D1" onclick="expX()">ส่งออก Excel</button><label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel<input type="file" accept=".xlsx,.xls" hidden onchange="impX(this)"></label>') + dt('usr', [['u', 'Username'], ['p', 'Password', r => '••••'], ['n', 'ชื่อ-นามสกุล'], ['email', 'อีเมล'], ['pos', 'ตำแหน่ง'], ['st', 'สถานะ']], D.users, { act: r => ab(`cUsr(${r.id})`, `dUsr(${r.id})`) })); },
-                        qs() {
-                $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">คำถามประเมิน (CLOs / LLOs / อาจารย์ผู้สอน)</div><div class="flex flex-wrap gap-2"><button class="btn" style="background:#3BB489" onclick="cQ()">+ เพิ่ม</button><button class="btn" style="background:#0288D1" onclick="expQ()">ดาวน์โหลด CSV</button><label class="btn cursor-pointer" style="background:#4A2C6D">อัปโหลด CSV<input type="file" accept=".csv,text/csv" hidden onchange="impQ(this)"></label></div></div>` + dt('qs', [['course_code', 'รหัสวิชา', r => r.course_code || r.courseCode || r.course || '-'], ['t', 'ประเภท', r => badge(r.t, r.t == 'CLO' ? '#0288D1' : r.t == 'LLO' ? '#F57C00' : '#4A2C6D')], ['question_text', 'คำถาม', r => r.question_text || r.questionText || r.q || r.text || '-']], D.qs, { act: r => ab(`cQ(${r.id})`, `dQ(${r.id})`) }));
+            qs() {
+                const yrs = [...new Set((D.qs || []).map(qYear).filter(Boolean))].sort(), fy = S.qy || '', fc = S.qc || '';
+                const rows = (D.qs || []).filter(q => (!fy || (fy === '_none' ? !qYear(q) : qYear(q) === fy)) && (!fc || qCode(q) === fc));
+                const codes = [...new Set((D.qs || []).map(qCode).filter(Boolean))].sort();
+                $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">คำถามประเมิน (CLOs / LLOs / อาจารย์ผู้สอน)</div><div class="flex flex-wrap gap-2"><button class="btn" style="background:#3BB489" onclick="cQ()">+ เพิ่ม</button><button class="btn" style="background:#F57C00" onclick="copyQ()">คัดลอกไปปีใหม่</button><button class="btn" style="background:#0288D1" onclick="expQ()">ดาวน์โหลด CSV</button><label class="btn cursor-pointer" style="background:#4A2C6D">อัปโหลด CSV<input type="file" accept=".csv,text/csv" hidden onchange="impQ(this)"></label></div></div>`
+                    + `<div class="flex flex-wrap gap-2 mb-3"><select class="inp !w-52" onchange="S.qy=this.value;V.qs()"><option value="">ปีการศึกษา: ทั้งหมด</option><option value="_none" ${fy === '_none' ? 'selected' : ''}>ชุดเริ่มต้น (ไม่ระบุปี)</option>${yrs.map(y => `<option ${y === fy ? 'selected' : ''}>${esc(y)}</option>`).join('')}</select><select class="inp !w-52" onchange="S.qc=this.value;V.qs()"><option value="">รายวิชา: ทั้งหมด</option>${codes.map(c => `<option ${c === fc ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>`
+                    + `<div class="text-xs text-gray-500 mb-2">คำถามที่ไม่ระบุปี = ใช้ได้ทุกปี | หากวิชาใดมีคำถามของปีที่ประเมินโดยเฉพาะ ระบบจะใช้เฉพาะชุดของปีนั้น</div>`
+                    + dt('qs', [['course_code', 'รหัสวิชา', r => r.course_code || r.courseCode || r.course || '-'], ['academic_year', 'ปีการศึกษา', r => qYear(r) || '<span class="text-gray-400">ทุกปี</span>'], ['t', 'ประเภท', r => badge(r.t, r.t == 'CLO' ? '#0288D1' : r.t == 'LLO' ? '#F57C00' : '#4A2C6D')], ['question_text', 'คำถาม', r => r.question_text || r.questionText || r.q || r.text || '-']], rows, { act: r => ab(`cQ(${r.id})`, `dQ(${r.id})`) }));
             },
             pdoc() {
                 const f = S.f || ''; let rows = D.docs.filter(d => !f || d.name == f);
@@ -619,8 +654,8 @@
                 });
                 const enr = (D.enrollments || []).filter(e => (!f.c || eC(e) == pick(f.c)) && (!f.s || eSem(e) == f.s) && (!f.y || eY(e) == f.y) && (!T || myCodes().has(eC(e))));
                 const nEnr = new Set(enr.map(eS)).size, rr = nEnr ? Math.round(new Set(rows.map(d => String(d.uid))).size / nEnr * 100) + '%' : '-';
-                const iq = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => (iq[a.q] = iq[a.q] || []).push(a.v)));
-                const itemRows = Object.entries(iq).map(([id, a]) => ({ k: qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: a.length, avg: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(2) }));
+                const iq = {}, iqt = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => { (iq[a.q] = iq[a.q] || []).push(a.v); if (a.t) iqt[a.q] = a.t; }));
+                const itemRows = Object.entries(iq).map(([id, a]) => ({ k: iqt[id] || qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: a.length, avg: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(2) }));
                 const itemBox = itemRows.length ? box('<div class="font-semibold mb-2">ผลประเมินรายข้อคำถาม</div>' + dt('repi', [['k', 'คำถาม'], ['n', 'จำนวน'], ['avg', 'เฉลี่ย'], ['l', 'ระดับ', r => lv(r.avg)]], itemRows, { n: 100 })) : '';
                 const tot = rows.length ? +(rows.reduce((x, d) => x + d.score, 0) / rows.length).toFixed(2) : 0;
                 const op = (a, v) => a.map(x => Array.isArray(x) ? `<option value="${x[0]}" ${x[0] == v ? 'selected' : ''}>${x[1]}</option>` : `<option ${x == v ? 'selected' : ''}>${x}</option>`).join('');
@@ -877,7 +912,7 @@
             if (!enrolledHere) return err('คุณไม่ได้ลงทะเบียนวิชานี้ในภาคการศึกษา ' + sem + '/' + yr);
             
             const c = courseOf(code), isC = type === 'ประเมินรายวิชา';
-            let qs = D.qs.filter(q => { const t = String(q.t || '').trim(), qc = String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase(); if (isC === (t === 'อาจารย์')) return false; return !qc || qc === 'ALL' || qc === code.toUpperCase(); });
+            let qs = qsFor(code, isC, yr);
             if (!qs.length) return err('ยังไม่มีคำถามประเมินสำหรับรายการนี้ กรุณาติดต่อผู้ดูแลระบบ');
             
             let selectedTeachers = isC ? [] : teachers;
@@ -893,7 +928,7 @@
             const r = await Swal.fire({
                 title: type, width: 680, showCancelButton: true, confirmButtonText: 'ส่งแบบประเมิน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
                 html: `<div class="text-left"><div class="bg-[#e8f6f0] p-3 rounded-lg text-sm mb-3"><b>${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br>👩‍🏫 ประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}` : ''}</div><div class="max-h-[40vh] overflow-y-auto border rounded-lg p-2">${qs.map(q => `<div class="flex gap-2 items-start py-2 border-b text-sm"><span class="flex-1">${esc(qText(q))}</span><select class="inp !w-20 qs shrink-0" data-q="${q.id}" style="padding:.25rem"><option value="">เลือก</option>${[5, 4, 3, 2, 1].map(n => `<option>${n}</option>`).join('')}</select></div>`).join('')}</div><label class="text-sm font-semibold mt-3 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp" rows="3"></textarea></div>`,
-                preConfirm: () => { const a = [...document.querySelectorAll('.qs')].map(x => ({ q: +x.dataset.q, v: +x.value })); if (a.some(x => !x.v)) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อ'); return false; } return { a, comment: $('#dcomment').value.trim() }; }
+                preConfirm: () => { const a = [...document.querySelectorAll('.qs')].map(x => ({ q: +x.dataset.q, v: +x.value, t: qText(qs.find(z => z.id == x.dataset.q) || {}) })); if (a.some(x => !x.v)) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อ'); return false; } return { a, comment: $('#dcomment').value.trim() }; }
             });
             if (!r.isConfirmed) return; const a = r.value.a;
             
@@ -1104,15 +1139,7 @@
 
             // กรองคำถาม
             const groups = {};
-            const filtered = D.qs.filter(q => {
-                const qCourseCode = String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase();
-                const qType = String(q.t || '').trim();
-                if (isCourse && qType === 'อาจารย์') return false;
-                if (!isCourse && qType !== 'อาจารย์') return false;
-                if (qCourseCode === 'ALL' || qCourseCode === '') return true;
-                if (selectedCode && qCourseCode === selectedCode.toUpperCase()) return true;
-                return false;
-            });
+            const filtered = qsFor(selectedCode, isCourse, $('#dy') ? $('#dy').value : '');
 
             filtered.forEach(q => {
                 const qType = String(q.t || '').trim();
