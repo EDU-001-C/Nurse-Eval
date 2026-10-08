@@ -129,7 +129,7 @@
         
         const MASTER = ['inst','positions','admins','users','qs','courses','enrollments','teaching'];
         let DIRTY = new Set(), LASTK = [];
-        const save = (...n) => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { }; syncData(); if (!NOSYNC && ME && ME.role === \'admin\') { (n.length ? n : MASTER).forEach(k => DIRTY.add(k)); gpush(); } };
+        const save = (...n) => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { }; syncData(); if (!NOSYNC && ME && ME.role === 'admin') { (n.length ? n : MASTER).forEach(k => DIRTY.add(k)); gpush(); } };
         const cfg = () => { 
             try { const saved = JSON.parse(localStorage.getItem('nsys_gs')); if (saved && saved.url) return saved; } catch (e) { } 
             return { url: 'https://script.google.com/macros/s/AKfycbz9ffLuppfUGOWtdKtUi7A9-H9WSzODhH8H97APynWoxF-TAWboBITClz433QEtODVr/exec', tk: 'nursing_master_2024' }; 
@@ -525,13 +525,6 @@
         
         
         
-        /* Settings and analytics helpers */
-        V.setting = () => {
-            const sets = D.inst || {};
-            const openVal = sets.openTime ? sets.openTime.slice(0,16) : '';
-            const closeVal = sets.closeTime ? sets.closeTime.slice(0,16) : '';
-            $('#mn').innerHTML = box(`<div class="font-semibold mb-3">ตั้งค่าระบบ</div><div class="space-y-3"><div><label class="text-sm">เปิดประเมิน (YYYY-MM-DDTHH:mm)</label><input id="inst_open" class="inp" type="text" value="${openVal}" placeholder="2025-02-01T08:00"></div><div><label class="text-sm">ปิดประเมิน</label><input id="inst_close" class="inp" type="text" value="${closeVal}" placeholder="2025-05-31T17:00"></div><div class="flex gap-2"><button class="btn" style="background:#3BB489" onclick="(() => { D.inst = D.inst || {}; D.inst.openTime = $('#inst_open').value; D.inst.closeTime = $('#inst_close').value; save('inst'); log('แก้ไขตั้งค่า'); notify('บันทึกสำเร็จ', 'success'); V.dash(); })()">บันทึก</button><button class="btn" style="background:#999" onclick="V.dash()">ยกเลิก</button></div></div>`);
-        };
         const canEval = () => { if (!D.inst || !D.inst.openTime || !D.inst.closeTime) return true; const now = new Date(), op = new Date(D.inst.openTime), cl = new Date(D.inst.closeTime); return now >= op && now <= cl; };
         
         /* ---------- VIEWS ---------- */
@@ -544,21 +537,6 @@
         const download = (data, name, type) => { const blob = new Blob([data], { type }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
         
 
-        // ===== Evaluation Time Settings =====
-        
-        D.inst = s;
-            save('inst');
-            log('แก้ไขตั้งค่าระบบ');
-            notify('บันทึกสำเร็จ', 'success');
-            V.dash();
-        };
-        const canEval = () => {
-            if (!D.inst || !D.inst.openTime || !D.inst.closeTime) return true;
-            const now = new Date(), op = new Date(D.inst.openTime), cl = new Date(D.inst.closeTime);
-            return now >= op && now <= cl;
-        };
-        
-        
         const updateDashboard = () => {
             if (ME.role !== 'admin') return;
             const stats = getAnalytics();
@@ -580,40 +558,29 @@
         };
         
                 const V = {
-
-
-                const T = [];
-                if (ME.role == 'admin') {
-                    const stats = getAnalytics();
-                    const enr = (D.enrollments || []).length;
-                    const teach = (D.teaching || []).length;
-                    const docs = (D.docs || []).length;
-                    const pct = enr > 0 ? Math.round(docs * 100 / (enr * Math.max(1, 1 + teach/enr))) : 0;
-                    
-                    T.push(`<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        <div style="background:#e3f2fd;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#1976d2">${enr}</div><div style="font-size:0.75rem;color:#555">นักศึกษา</div></div>
-                        <div style="background:#f3e5f5;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#7b1fa2">${teach}</div><div style="font-size:0.75rem;color:#555">ครั้งสอน</div></div>
-                        <div style="background:#e8f5e9;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#388e3c">${docs}</div><div style="font-size:0.75rem;color:#555">ส่งแล้ว</div></div>
-                        <div style="background:#fff3e0;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#f57c00">${pct}%</div><div style="font-size:0.75rem;color:#555">ความสำเร็จ</div></div>
-                    </div>`);
-                    
-                    if (stats.count > 0) {
-                        T.push(`<div style="background:#f5f5f5;padding:1rem;border-radius:0.5rem;margin-bottom:1rem">
-                            <div style="font-size:0.9rem"><b>ผลประเมิน</b> | เฉลี่ย: ${stats.avg} | สูงสุด: ${stats.max.toFixed(2)} | ต่ำสุด: ${stats.min.toFixed(2)}</div>
-                        </div>`);
-                    }
-                    
-                    T.push(`<button class="btn" style="background:#666;color:#fff" onclick="V.setting()" title="ตั้งค่า">⚙️ ตั้งค่าระบบ</button>`);
+            dash() {
+                const docs = D.docs || [], enr = D.enrollments || [], teach = D.teaching || [];
+                const scores = docs.map(d => +d.score || 0).filter(s => s > 0);
+                const avg = scores.length ? +(scores.reduce((x, y) => x + y, 0) / scores.length).toFixed(2) : '-';
+                if (ME.role === 'student') {
+                    const mine = docs.filter(d => d.uid == ME.u), myEnr = enr.filter(e => eS(e) === ME.u);
+                    $('#mn').innerHTML = cards([['รายวิชาที่ลงทะเบียน', myEnr.length, '#3BB489', '#76C58C'], ['แบบประเมินที่ส่งแล้ว', mine.length, '#0288D1', '#4FC3F7']])
+                        + box('<div class="text-gray-600">ไปที่เมนู <b>แบบประเมินของฉัน</b> เพื่อทำแบบประเมินรายวิชาและอาจารย์ผู้สอน</div>');
+                    return;
                 }
-                
-                const menus = ME.role === 'admin' ? 
-                    [['dash','แดชบอร์ด','rep'],['inst','ข้อมูลหลักสูตร','doc'],['pos','สำนักอำนาจ','doc'],['adm','ผู้ดูแลระบบ','adm'],['usr','จัดการผู้ใช้','adm'],['crs','จัดการรายวิชา','doc'],['teach','มอบหมายอาจารย์','usr'],['enr','ลงทะเบียน','usr'],['qs','คำถาม','doc'],['docs','แบบประเมิน','doc'],['report','รายงาน','rep'],['track','ติดตาม','rep'],['setting','ตั้งค่า','adm'],['gs','Google Sheet','adm']] :
-                    ME.role === 'teacher' ?
-                    [['docs','แบบประเมิน','doc'],['treport','ผลประเมิน','rep'],['myeval','ประเมินของฉัน','rep']] :
-                    [['docs','แบบประเมิน','doc'],['myeval','ผลประเมิน','rep']];
-                
-                $('#sd').innerHTML = menus.map(([id,n,t]) => `<div class="p-2 hover:bg-gray-200 cursor-pointer rounded" onclick="V.${id}()">${n}</div>`).join('');
-                $('#mn').innerHTML = box(T.join(''));
+                const isAdmin = ME.role === 'admin';
+                const myC = isAdmin ? null : myCodes();
+                const rows = isAdmin ? docs : docs.filter(d => myC.has(docCode(d)));
+                const sc = rows.map(d => +d.score || 0).filter(s => s > 0);
+                const av = sc.length ? +(sc.reduce((x, y) => x + y, 0) / sc.length).toFixed(2) : '-';
+                const c = isAdmin
+                    ? [['ผู้ใช้งาน', D.users.length, '#3BB489', '#76C58C'], ['รายวิชา', (D.courses || []).length, '#0288D1', '#4FC3F7'], ['การลงทะเบียน', enr.length, '#F57C00', '#FFB74D'], ['แบบประเมินที่ส่งแล้ว', docs.length, '#4A2C6D', '#8e6bb8']]
+                    : [['รายวิชาที่สอน', myC.size, '#3BB489', '#76C58C'], ['จำนวนการประเมิน', rows.length, '#0288D1', '#4FC3F7'], ['คะแนนเฉลี่ย', av, '#F57C00', '#FFB74D']];
+                const byType = {}; rows.forEach(d => { byType[d.type] = (byType[d.type] || 0) + 1; });
+                const ty = Object.keys(byType);
+                $('#mn').innerHTML = cards(c) + (ty.length ? box('<div class="font-semibold mb-2">จำนวนแบบประเมินแยกตามประเภท</div>' + cvs('cvd')) : box('<p class="text-center text-gray-500">ยังไม่มีข้อมูลการประเมิน</p>'))
+                    + (isAdmin ? `<div class="mt-4"><button class="btn" style="background:#666" onclick="V.setting()">⚙️ ตั้งค่าช่วงเวลาประเมิน</button></div>` : '');
+                if (ty.length) chart('cvd', 'bar', ty, ty.map(k => byType[k]));
             },
             inst() {
                 const i = D.inst; $('#mn').innerHTML = box(`<div class="max-w-lg space-y-3"><label>ชื่อสถาบัน</label><input id="in" class="inp" value="${i.name}"><label>ชื่อหน่วยงาน (แสดงที่ footer)</label><input id="io" class="inp" value="${i.org}"><label>โลโก้สถาบัน</label><input type="file" accept="image/*" id="il" class="inp" onchange="prev(this)"><img id="ip" src="${i.logo}" class="w-28 h-28 object-contain border rounded-xl p-1"><div><button class="btn" style="background:#3BB489" onclick="saveInst()">บันทึกการแก้ไข</button></div></div>`);
@@ -688,6 +655,14 @@
             }
         };
 
+
+        /* Settings and analytics helpers */
+        V.setting = () => {
+            const sets = D.inst || {};
+            const openVal = sets.openTime ? sets.openTime.slice(0,16) : '';
+            const closeVal = sets.closeTime ? sets.closeTime.slice(0,16) : '';
+            $('#mn').innerHTML = box(`<div class="font-semibold mb-3">ตั้งค่าระบบ</div><div class="space-y-3"><div><label class="text-sm">เปิดประเมิน (YYYY-MM-DDTHH:mm)</label><input id="inst_open" class="inp" type="text" value="${openVal}" placeholder="2025-02-01T08:00"></div><div><label class="text-sm">ปิดประเมิน</label><input id="inst_close" class="inp" type="text" value="${closeVal}" placeholder="2025-05-31T17:00"></div><div class="flex gap-2"><button class="btn" style="background:#3BB489" onclick="(() => { D.inst = D.inst || {}; D.inst.openTime = $('#inst_open').value; D.inst.closeTime = $('#inst_close').value; save('inst'); log('แก้ไขตั้งค่า'); notify('บันทึกสำเร็จ', 'success'); V.dash(); })()">บันทึก</button><button class="btn" style="background:#999" onclick="V.dash()">ยกเลิก</button></div></div>`);
+        };
 
         // ===== Theme =====
         const toggleTheme = () => {
@@ -826,6 +801,7 @@
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         
+        Object.assign(V, {
             myeval() {
                 const rows = D.docs.filter(d => d.uid === ME.u);
                 if (!rows.length) {
@@ -891,7 +867,8 @@
                     `<select class="inp !w-60" onchange="S.f=this.value;V.treport()"><option value="">— ทั้งหมด —</option>${[...myCodes].map(c => `<option ${c===f?'selected':''}>${c}</option>`).join('')}</select>`)) +
                     box(dt('tsumm', [['code','รายวิชา'], ['course','ชื่อ'], ['n','จำนวน'], ['avg','เฉลี่ย'], ['min','ต่ำสุด'], ['max','สูงสุด']], summary)) +
                     box('<div class="font-semibold mb-2">รายละเอียดแต่ละผู้ตอบ</div>' + dt('tdet', [['uid','ชื่อนักศึกษา',r=>esc(uName(r.uid))], ['type','ประเภท'], ['score','คะแนน',r=>(r.score||0).toFixed(2)], ['comment','ข้อเสนอแนะ',r=>esc((r.comment||'-').substring(0,30))], ['date','วันที่']], rows));
-            },
+            }
+        });
 
             
         async function doEval(code, type, teachers, sem, yr) {
