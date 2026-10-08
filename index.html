@@ -157,7 +157,7 @@
             try {
                 D.admins = N(d.admins); D.users = N(d.users); D.qs = N(d.qs); 
                 D.docs = N(d.docs).map(x => ({ ...x, score: +x.score })); D.logs = N(d.logs); 
-                D.courses = d.courses || []; normCourses();
+                D.courses = d.courses || []; normCourses(); normQs();
                 D.enrollments = d.enrollments || [];
                 D.teaching = d.teaching || [];
                 if ((d.positions||[]).length) D.positions = d.positions.map(x => x.name);
@@ -559,7 +559,7 @@
             (D.qs || []).filter(q => qYear(q) === f && (!c || qCode(q) === c)).forEach(q => { if (have.has(key(q))) return; D.qs.push({ ...q, id: nid(D.qs), academic_year: to }); n++; });
             save(); log('คัดลอกคำถามปี ' + (f || 'เริ่มต้น') + ' → ' + to + ' (' + n + ' ข้อ)'); ok(n ? 'คัดลอก ' + n + ' ข้อ' : 'มีคำถามเหล่านี้ในปี ' + to + ' แล้ว'); V.qs();
         }
-        async function cQ(id) { const o = D.qs.find(x => x.id == id), v = await form(o ? 'แก้ไขคำถาม' : 'เพิ่มคำถาม', [{ k: 'course_code', l: 'รหัสวิชา (ว่างหรือ ALL สำหรับทุกวิชา)', opt: 1 }, { k: 'academic_year', l: 'ปีการศึกษา เช่น 2569 (ว่าง = ใช้ได้ทุกปี)', opt: 1 }, { k: 't', l: 'ประเภท', o: ['CLO', 'LLO', 'อาจารย์'] }, { k: 'question_text', l: 'คำถาม', t: 'textarea' }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.qs.push({ id: nid(D.qs), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'คำถาม'); }); ok('สำเร็จ'); V.qs(); }
+        async function cQ(id) { const o = D.qs.find(x => x.id == id), v = await form(o ? 'แก้ไขคำถาม' : 'เพิ่มคำถาม', [{ k: 'course_code', l: 'รหัสวิชา (ว่างหรือ ALL สำหรับทุกวิชา)', opt: 1 }, { k: 'academic_year', l: 'ปีการศึกษา เช่น 2569 (ว่าง = ใช้ได้ทุกปี)', opt: 1 }, { k: 't', l: 'ประเภท', o: ['โครงสร้างรายวิชา', 'คำถามก่อนเรียน', 'คำถามหลังเรียน', 'CLO', 'LLO', 'อาจารย์'] }, { k: 'question_text', l: 'คำถาม', t: 'textarea' }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.qs.push({ id: nid(D.qs), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'คำถาม'); }); ok('สำเร็จ'); V.qs(); }
         async function dQ(id) { if (!await cf('ลบคำถามนี้?')) return; D.qs = D.qs.filter(x => x.id != id); save(); log('ลบคำถาม'); ok('ลบแล้ว'); V.qs(); }
         async function expQ() { const rows = D.qs.map(q => ({ course_code: G(q, 'course_code', 'courseCode', 'course'), academic_year: qYear(q), t: q.t || 'CLO', question_text: q.question_text || q.questionText || q.q || q.text })); const csv = [['course_code', 't', 'question_text', 'academic_year'], ...rows.map(r => [r.course_code || '', r.t, r.question_text, r.academic_year || ''])].map(x => x.map(s => '"' + String(s).replace(/"/g, '""') + '"').join(',')).join('\n'); download(csv, 'questions.csv', 'text/csv'); }
         async function impQ(i) { const f = i.files[0]; if (!f) return; await busy(async () => { const c = await f.text(), rows = c.split('\n').slice(1).filter(x => x.trim()); let n = 0; D.qs = D.qs || []; rows.forEach(row => { const [cc, t, qt, ay = ''] = row.split(',').map(x => x.replace(/^"|"$/g, '').replace(/""/g, '"')); if (cc && t && qt) { if (!D.qs.some(q => (G(q, 'course_code', 'courseCode', 'course') || '') === (cc || '') && qYear(q) === ay.trim() && q.t === t && (q.question_text || q.questionText || q.q || q.text) === qt)) { D.qs.push({ id: nid(D.qs), course_code: cc, academic_year: ay.trim(), t, question_text: qt }); n++; } } }); save(); log('นำเข้าคำถาม ' + n + ' รายการ'); i.value = ''; }); ok('นำเข้าสำเร็จ'); V.qs(); }
@@ -654,7 +654,7 @@
                 });
                 const enr = (D.enrollments || []).filter(e => (!f.c || eC(e) == pick(f.c)) && (!f.s || eSem(e) == f.s) && (!f.y || eY(e) == f.y) && (!T || myCodes().has(eC(e))));
                 const nEnr = new Set(enr.map(eS)).size, rr = nEnr ? Math.round(new Set(rows.map(d => String(d.uid))).size / nEnr * 100) + '%' : '-';
-                const iq = {}, iqt = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => { (iq[a.q] = iq[a.q] || []).push(a.v); if (a.t) iqt[a.q] = a.t; }));
+                const iq = {}, iqt = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => { const kk = a.t ? 't:' + a.t : a.q; (iq[kk] = iq[kk] || []).push(a.v); if (a.t) iqt[kk] = a.t; }));
                 const itemRows = Object.entries(iq).map(([id, a]) => ({ k: iqt[id] || qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: a.length, avg: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(2) }));
                 const itemBox = itemRows.length ? box('<div class="font-semibold mb-2">ผลประเมินรายข้อคำถาม</div>' + dt('repi', [['k', 'คำถาม'], ['n', 'จำนวน'], ['avg', 'เฉลี่ย'], ['l', 'ระดับ', r => lv(r.avg)]], itemRows, { n: 100 })) : '';
                 const tot = rows.length ? +(rows.reduce((x, d) => x + d.score, 0) / rows.length).toFixed(2) : 0;
@@ -754,6 +754,8 @@
                 /* ---------- LINKED DATA: courses / teaching / enrollments / docs ---------- */
         let PWBAD = 0;
         // แปลงชีต courses เดิม (course_code/course_name/หน่วยกิต, id ซ้ำ) ให้เป็นรูปแบบมาตรฐาน {id, code, name, credits}
+        // ชีตเดิมอาจมี id = 0 หรือซ้ำกัน → กำหนด id ไม่ซ้ำให้คำถามแต่ละข้อ (ตามลำดับแถว)
+        const normQs = () => { const seen = new Set(); let mx = 0; (D.qs || []).forEach(q => mx = Math.max(mx, +q.id || 0)); D.qs = (D.qs || []).map(q => { let id = +q.id; if (!id || seen.has(id)) id = ++mx; seen.add(id); return { ...q, id }; }); };
         const normCourses = () => { const seen = new Set(); let mx = 0; (D.courses || []).forEach(c => mx = Math.max(mx, +c.id || 0));
             D.courses = (D.courses || []).filter(c => G(c, 'code', 'course_code')).map(c => { let id = +c.id; if (!id || seen.has(id)) id = ++mx; seen.add(id); return { id, code: G(c, 'code', 'course_code'), name: G(c, 'name', 'course_name'), credits: G(c, 'credits', 'หน่วยกิต') }; }); };
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1246,7 +1248,7 @@
         
                 /* ---------- init ---------- */
         const initLoad = () => {
-            normCourses();
+            normCourses(); normQs();
             // 1) แสดงหน้าเว็บทันทีจาก localStorage cache (ไม่ต้องรอดึงข้อมูลจาก Sheet)
             try {
                 const saved = JSON.parse(sessionStorage.getItem('nsys_me'));
