@@ -29,6 +29,18 @@
         .btn:hover { filter: brightness(.95); transform: translateY(-1px); }
         th { cursor: pointer; white-space: nowrap; }
         .swal2-popup { font-family: 'Sarabun'; }
+        .rt { position: relative; display: inline-block; }
+        .rt input { position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; margin: 0; cursor: pointer; }
+        .rt span { display: inline-flex; width: 52px; height: 52px; align-items: center; justify-content: center; border: 2px solid #d1d5db; border-radius: 14px; font-size: 1.15rem; font-weight: 600; color: #4b5563; background: #fff; transition: .15s; }
+        .rt:hover span { border-color: #3BB489; background: #e8f6f0; }
+        .rt input:checked + span { background: #3BB489; border-color: #3BB489; color: #fff; box-shadow: 0 4px 10px #3bb48955; }
+        .rt input:focus-visible + span { outline: 3px solid #3bb48966; }
+        .eval-popup { font-family: 'Sarabun', sans-serif; }
+        .eval-popup .swal2-html-container { max-height: 68vh; overflow-y: auto; text-align: left; margin: 1em 1.2em .3em; }
+        .eval-row { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; justify-content: space-between; padding: 1rem .5rem; border-bottom: 1px solid #e5e7eb; }
+        .eval-row:last-child { border-bottom: 0; }
+        .eval-q { flex: 1 1 420px; font-size: 1.1rem; line-height: 1.6; color: #1f2937; }
+        .eval-rt { display: flex; gap: .5rem; }
         :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; }
         
         @media print {
@@ -830,11 +842,12 @@
                 T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินรายวิชา', teachers: [], done: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) });
                 // ประเมินอาจารย์ (รวมเป็นแถวเดียวต่อวิชา)
                 const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t));
-                if (teachers.length) T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, done: teachers.every(tid => D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == tid)) });
+                if (teachers.length) T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.map(uName).join(', '), done: teachers.every(tid => D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == tid)) });
             });
+            MYT = T; T.forEach((r, i) => r.i = i);
             const n = T.filter(t => t.done).length, pc = T.length ? Math.round(n / T.length * 100) : 0;
             $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${T.length} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`).replace('mt-4', '') +
-                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class=\"btn !px-3 !py-1\" style=\"background:#3BB489\" onclick=\"doEval('${esc(r.code)}','${r.type}',${JSON.stringify(r.teachers)},'${esc(r.sem)}','${esc(r.yr)}')\">ประเมิน</button>` })) +
+                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class="btn !px-3 !py-1" style="background:#3BB489" onclick="doEvalI(${r.i})">ประเมิน</button>` })) +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         
@@ -908,43 +921,72 @@
         });
 
             
+        let MYT = [];
+        const doEvalI = i => { const r = MYT[i]; if (r) return doEval(r.code, r.type, r.teachers, r.sem, r.yr); };
         async function doEval(code, type, teachers, sem, yr) {
             // ตรวจสอบว่าผู้ใช้ลงทะเบียนวิชานี้จริงๆ
             const enrolledHere = (D.enrollments || []).some(e => eS(e) === ME.u && eC(e).toUpperCase() === code.toUpperCase() && eSem(e) === sem && eY(e) === yr);
             if (!enrolledHere) return err('คุณไม่ได้ลงทะเบียนวิชานี้ในภาคการศึกษา ' + sem + '/' + yr);
-            
+
             const c = courseOf(code), isC = type === 'ประเมินรายวิชา';
-            let qs = qsFor(code, isC, yr);
+            const qs = qsFor(code, isC, yr);
             if (!qs.length) return err('ยังไม่มีคำถามประเมินสำหรับรายการนี้ กรุณาติดต่อผู้ดูแลระบบ');
-            
+
+            teachers = Array.isArray(teachers) ? teachers : [];
             let selectedTeachers = isC ? [] : teachers;
             if (!isC && teachers.length > 1) {
                 const r = await Swal.fire({
-                    title: 'เลือกอาจารย์ที่ต้องการประเมิน', width: 500, showCancelButton: true, confirmButtonText: 'ถัดไป', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
-                    html: `<div class="text-left space-y-2"><label class="text-sm">อาจารย์ผู้สอน (เลือกได้หลายคน)</label><div class="border rounded-lg p-2 max-h-40 overflow-y-auto">${teachers.map(tid => `<label class="flex gap-2 items-center py-1 text-sm cursor-pointer"><input type="checkbox" class="t_sel" value="${esc(tid)}" checked><span>${esc(uName(tid))}</span></label>`).join('')}</div></div>`,
+                    title: 'เลือกอาจารย์ที่ต้องการประเมิน', width: 'min(640px, 96vw)', showCancelButton: true, confirmButtonText: 'ถัดไป ›', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
+                    html: `<div class="text-left space-y-2"><label class="text-base">อาจารย์ผู้สอน (เลือกได้หลายคน)</label><div class="border rounded-lg p-3 max-h-60 overflow-y-auto">${teachers.map(tid => `<label class="flex gap-3 items-center py-2 text-lg cursor-pointer"><input type="checkbox" class="t_sel" style="width:20px;height:20px" value="${esc(tid)}" checked><span>${esc(uName(tid))}</span></label>`).join('')}</div></div>`,
                     preConfirm: () => { selectedTeachers = [...document.querySelectorAll('.t_sel:checked')].map(x => x.value); if (!selectedTeachers.length) { Swal.showValidationMessage('กรุณาเลือกอาจารย์อย่างน้อย 1 คน'); return false; } return true; }
                 });
                 if (!r.isConfirmed) return;
             }
-            
-            const r = await Swal.fire({
-                title: type, width: 680, showCancelButton: true, confirmButtonText: 'ส่งแบบประเมิน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
-                html: `<div class="text-left"><div class="bg-[#e8f6f0] p-3 rounded-lg text-sm mb-3"><b>${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br>👩‍🏫 ประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}` : ''}</div><div class="max-h-[40vh] overflow-y-auto border rounded-lg p-2">${qs.map(q => `<div class="flex gap-2 items-start py-2 border-b text-sm"><span class="flex-1">${esc(qText(q))}</span><select class="inp !w-20 qs shrink-0" data-q="${q.id}" style="padding:.25rem"><option value="">เลือก</option>${[5, 4, 3, 2, 1].map(n => `<option>${n}</option>`).join('')}</select></div>`).join('')}</div><label class="text-sm font-semibold mt-3 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp" rows="3"></textarea></div>`,
-                preConfirm: () => { const a = [...document.querySelectorAll('.qs')].map(x => ({ q: +x.dataset.q, v: +x.value, t: qText(qs.find(z => z.id == x.dataset.q) || {}) })); if (a.some(x => !x.v)) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อ'); return false; } return { a, comment: $('#dcomment').value.trim() }; }
-            });
-            if (!r.isConfirmed) return; const a = r.value.a;
-            
-            // ส่งแบบประเมินแยกต่ออาจารย์แต่ละคน เพื่อให้ระบบตรวจไม่ซ้ำ
-            let submitted = 0, failed = [];
-            for (const teacher of selectedTeachers) {
-                const tn = uName(teacher);
-                const doc = { id: Date.now() + Math.random(), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: tn, score: +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2), answers: a, comment: r.value.comment };
-                let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
-                if (!res.ok) { failed.push(tn + ': ' + (res.error || 'ไม่สำเร็จ')); } else { submitted++; }
+
+            // แบ่งหน้าตามประเภทคำถาม: โครงสร้างรายวิชา → ก่อนเรียน → หลังเรียน (ประเภทอื่นต่อท้าย)
+            const ORDER = ['โครงสร้างรายวิชา', 'คำถามก่อนเรียน', 'คำถามหลังเรียน'], byT = {};
+            qs.forEach(q => { const k = String(q.t || '').trim() || 'คำถามทั่วไป'; (byT[k] = byT[k] || []).push(q); });
+            const keys = isC ? [...ORDER.filter(k => byT[k]), ...Object.keys(byT).filter(k => !ORDER.includes(k))] : Object.keys(byT);
+            const pages = keys.map(k => ({ name: isC ? k : 'การสอนของอาจารย์ผู้สอน', qs: byT[k] }));
+
+            const ans = {}; let comment = '';
+            const collect = pg => { pg.qs.forEach(q => { const el = document.querySelector(`input[name="q_${q.id}"]:checked`); if (el) ans[q.id] = +el.value; else delete ans[q.id]; }); const cm = $('#dcomment'); if (cm) comment = cm.value; };
+            const pageHtml = (pg, i, last) => `<div class="text-left">
+                <div class="p-4 rounded-xl mb-4 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br>👩‍🏫 ประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}` : ''}</div>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1"><h3 class="text-xl font-bold" style="color:#3BB489">${esc(pg.name)}</h3><span class="text-sm text-gray-500">หน้า ${i + 1}/${pages.length}</span></div>
+                <div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด</div>
+                <div class="border rounded-xl">${pg.qs.map(q => `<div class="eval-row"><div class="eval-q">${esc(qText(q))}</div><div class="eval-rt">${[5, 4, 3, 2, 1].map(v => `<label class="rt"><input type="radio" name="q_${q.id}" value="${v}" ${ans[q.id] == v ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div></div>`).join('')}</div>
+                ${last ? `<label class="text-base font-semibold mt-4 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp mt-1" style="font-size:1.05rem" rows="4">${esc(comment)}</textarea>` : ''}</div>`;
+
+            let pi = 0;
+            while (pi < pages.length) {
+                const pg = pages[pi], last = pi === pages.length - 1;
+                const r = await Swal.fire({
+                    title: type, width: 'min(1100px, 96vw)', customClass: { popup: 'eval-popup' }, allowOutsideClick: false,
+                    progressSteps: pages.length > 1 ? pages.map((_, i) => String(i + 1)) : [], currentProgressStep: pi,
+                    showCancelButton: true, showDenyButton: pi > 0,
+                    confirmButtonText: last ? 'ส่งแบบประเมิน' : 'ถัดไป ›', denyButtonText: '‹ ย้อนกลับ', cancelButtonText: 'ยกเลิก',
+                    confirmButtonColor: '#3BB489', denyButtonColor: '#6b7280',
+                    html: pageHtml(pg, pi, last),
+                    preConfirm: () => { collect(pg); const miss = pg.qs.filter(q => !ans[q.id]); if (miss.length) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อในหน้านี้ (เหลืออีก ' + miss.length + ' ข้อ)'); return false; } return true; },
+                    preDeny: () => { collect(pg); return true; }
+                });
+                if (r.isConfirmed) pi++; else if (r.isDenied) pi--; else return;
             }
-            if (failed.length) return err('ส่งได้ ' + submitted + ' อาจารย์ แต่ล้มเหลว: ' + failed.join(', '));
-            D.docs.push(...selectedTeachers.map((teacher, i) => ({ id: Date.now() + i, uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: uName(teacher), score: +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2), answers: a, comment: r.value.comment })));
-            save(); log('ส่งแบบประเมิน: ' + type + ' ' + code + ' ' + submitted + ' อาจารย์'); ok('บันทึกแล้ว'); V.docs();
+
+            const a = qs.map(q => ({ q: q.id, v: ans[q.id], t: qText(q) })), score = +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2);
+            // รายวิชา: ส่ง 1 ชุด (ไม่ระบุอาจารย์) | ประเมินอาจารย์: ส่งแยกต่ออาจารย์แต่ละคน เพื่อให้ระบบตรวจไม่ซ้ำ
+            const targets = isC ? [''] : selectedTeachers, sent = [], failed = [];
+            for (const teacher of targets) {
+                const tn = teacher ? uName(teacher) : '';
+                const doc = { id: Date.now() + Math.random(), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: tn, score, answers: a, comment };
+                let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
+                if (!res.ok) failed.push((tn || code) + ': ' + (res.error || 'ไม่สำเร็จ')); else sent.push(doc);
+            }
+            D.docs.push(...sent); save();
+            if (sent.length) log('ส่งแบบประเมิน: ' + type + ' ' + code + ' (' + sent.length + ' รายการ)');
+            if (failed.length) { await err('ส่งสำเร็จ ' + sent.length + ' รายการ แต่ล้มเหลว: ' + failed.join(', ')); return V.docs(); }
+            ok('ส่งแบบประเมินเรียบร้อยแล้ว'); V.docs();
         }
 
         // แอดมิน: ติดตามผลการประเมิน + ตรวจความสัมพันธ์ของข้อมูลระหว่างชีต
