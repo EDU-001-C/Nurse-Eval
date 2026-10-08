@@ -552,10 +552,13 @@
         // กติกา: คำถามที่ไม่ระบุปี = ชุดเริ่มต้นใช้ได้ทุกปี | ถ้าวิชา+ประเภทนั้นมีคำถามของปีที่ประเมินโดยเฉพาะ จะใช้เฉพาะชุดของปีนั้น
         const qCode = q => String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase();
         const qYear = q => G(q, 'academic_year', 'academicYear');
+        // ข้อ "ข้อเสนอแนะเพิ่มเติม" ไม่ใช่คำถามให้คะแนน (มีช่องพิมพ์ข้อเสนอแนะแยกอยู่แล้ว) → ไม่นำมาแสดงในแบบประเมิน
+        const isCommentQ = q => /^ข้อเสนอแนะ(เพิ่มเติม)?$/.test(String(q.question_text || q.questionText || q.q || q.text || '').trim().replace(/[\s:：.]+$/, ''));
         const qsFor = (code, isCourse, yr) => {
             const C = String(code || '').trim().toUpperCase(), Y = String(yr || '').trim(), groups = {};
             (D.qs || []).forEach(q => {
                 const ty = String(q.t || '').trim(), c = qCode(q);
+                if (isCommentQ(q)) return;
                 if (isCourse === (ty === 'อาจารย์')) return;
                 if (!(!c || c === 'ALL' || c === C)) return;
                 (groups[(c || 'ALL') + '|' + ty] = groups[(c || 'ALL') + '|' + ty] || []).push(q);
