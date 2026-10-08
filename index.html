@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
     <meta charset="utf-8">
     <title>ระบบประเมินการจัดการเรียนการสอน หลักสูตรพยาบาลศาสตรมหาบัณฑิต</title>
@@ -42,7 +42,36 @@
             .grid > div { margin-bottom: 20px; }
             ::-webkit-scrollbar { display: none; }
         }
-    </style>
+    
+        :root[data-theme="light"] { --bg: #fff; --text: #000; --border: #e5e7eb; --btn-bg: #3BB489; }
+        :root[data-theme="dark"] { --bg: #1f2937; --text: #f3f4f6; --border: #374151; --btn-bg: #2d9d7b; }
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        body { background: var(--bg); color: var(--text); }
+        
+        @media (max-width: 768px) {
+            .btn { min-height: 44px; padding: 0.625rem !important; font-size: 0.95rem; }
+            .inp { min-height: 44px; padding: 0.5rem; font-size: 0.95rem; }
+            .text-\[20pt\] { font-size: 14pt !important; }
+            .w-80 { width: 100% !important; }
+            .flex-wrap { flex-wrap: wrap; }
+        }
+        
+        .btn { user-select: none; }
+        .btn:active { transform: scale(0.98); }
+        input:focus, select:focus, textarea:focus { outline: 2px solid var(--btn-bg); outline-offset: 2px; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        table thead { position: sticky; top: 0; z-index: 10; background: var(--bg); }
+        table th { padding: 0.75rem; text-align: left; font-weight: 600; background: var(--bg); color: var(--text); border-bottom: 2px solid var(--border); }
+        table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
+        table tbody tr:hover { background: rgba(59, 180, 137, 0.05); }
+        @media (max-width: 768px) {
+            table { font-size: 0.85rem; }
+            table th, table td { padding: 0.5rem; }
+        }
+        </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogItGH0L7TgdGH0L/RgtGC0LLRgdGC0YHQutC80LDRhtGF0LLQsNC90LvRjNC90LDRgtGM0L3QuNC7IiwKICAic2hvcnRfbmFtZSI6ICLRh9C+04HRh9C/IiwKICAiZGVzY3JpcHRpb24iOiAi16TRgtCzIgogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZiIsCiAgInRoZW1lX2NvbG9yIjogIiMzQkI0ODkiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIKfQ==">
 </head>
 <body>
     <!-- Splash screen: hides itself via CSS after 2s, AND JS hides it when ready -->
@@ -100,7 +129,7 @@
         
         const MASTER = ['inst','positions','admins','users','qs','courses','enrollments','teaching'];
         let DIRTY = new Set(), LASTK = [];
-        const save = (...n) => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { }; if (!NOSYNC && ME && ME.role === 'admin') { (n.length ? n : MASTER).forEach(k => DIRTY.add(k)); gpush(); } };
+        const save = (...n) => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { }; syncData(); if (!NOSYNC && ME && ME.role === \'admin\') { (n.length ? n : MASTER).forEach(k => DIRTY.add(k)); gpush(); } };
         const cfg = () => { 
             try { const saved = JSON.parse(localStorage.getItem('nsys_gs')); if (saved && saved.url) return saved; } catch (e) { } 
             return { url: 'https://script.google.com/macros/s/AKfycbz9ffLuppfUGOWtdKtUi7A9-H9WSzODhH8H97APynWoxF-TAWboBITClz433QEtODVr/exec', tk: 'nursing_master_2024' }; 
@@ -141,7 +170,7 @@
         let ME = null, IP = 'ไม่ทราบ', S = {};
         fetch('https://api.ipify.org?format=json').then(r => r.json()).then(j => IP = j.ip).catch(() => { });
         
-        const log = a => { const e = { id: Date.now(), t: new Date().toLocaleString('th-TH'), u: ME ? ME.n : '-', uid: ME ? ME.u : '-', a, ip: IP }; D.logs.unshift(e); D.logs = D.logs.slice(0, 500); try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (_) { } post({ action: 'addLogs', logs: [e] }); };
+        const log = a => { const e = { id: Date.now(), t: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }), u: ME ? ME.n : '-', uid: ME ? ME.u : '-', a, ip: IP }; D.logs.unshift(e); D.logs = D.logs.slice(0, 500); try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (_) { } post({ action: 'addLogs', logs: [e] }); };
         const nid = a => Math.max(0, ...a.map(x => x.id)) + 1;
         const busy = async f => { $('#busy').style.display = 'flex'; await new Promise(r => setTimeout(r, 450)); try { return await f(); } finally { $('#busy').style.display = 'none'; } };
         const ok = (t) => Swal.fire({ icon: 'success', title: t, timer: 1400, showConfirmButton: false });
@@ -373,7 +402,7 @@
         /* ---------- LAYOUT ---------- */
         const menus = () => ME.role == 'admin' ? [
             ['dash', 'แดชบอร์ด', 'dash'], ['inst', 'ข้อมูลหลักสูตร', 'inst'], ['adm', 'จัดการผู้ใช้งาน (Admin)', 'adm'],
-            ['usr', 'จัดการข้อมูลผู้ใช้งาน', 'usr'], ['qs', 'จัดการคำถามประเมิน', 'q'], ['report', 'รายงานผลประเมิน', 'rep'], ['crs', 'จัดการรายวิชา', 'doc'], ['teach', 'มอบหมายอาจารย์ผู้สอน', 'usr'], ['enr', 'ลงทะเบียนนักศึกษา', 'usr'], ['track', 'ติดตามการประเมิน', 'rep'],
+            ['usr', 'จัดการข้อมูลผู้ใช้งาน', 'usr'], ['qs', 'จัดการคำถามประเมิน', 'q'], ['report', 'รายงานผลประเมิน', 'rep'], ['crs', 'จัดการรายวิชา', 'doc'], ['usr', 'จัดการผู้ใช้งาน', 'adm'], ['teach', 'มอบหมายอาจารย์ผู้สอน', 'usr'], ['enr', 'ลงทะเบียนนักศึกษา', 'usr'], ['track', 'ติดตามการประเมิน', 'rep'],
             ['pdoc', 'เอกสารส่วนตัว', 'doc'], ['log', 'ประวัติการใช้งาน (LOG)', 'log'], ['gs', 'เชื่อมต่อ Google Sheet', 'inst']
         ] : ME.role == 'student' ? [
             ['dash', 'แดชบอร์ด', 'dash'], ['docs', 'แบบประเมินของฉัน', 'doc']
@@ -485,71 +514,106 @@
             });
         }
 
-        /* ---------- VIEWS ---------- */
-        const V = {
-            dash() {
-                const m = $('#mn');
-                if (ME.role == 'admin') {
-                    // ใช้ trim() และ normalize เพื่อป้องกันปัญหาช่องว่าง/encoding จาก Sheet
-                    const normPos = u => (u.pos || '').toString().trim();
-                    const st = D.users.filter(u => normPos(u) === 'นักศึกษา').length;
-                    const t = D.users.filter(u => normPos(u) === 'อาจารย์' || (normPos(u) !== 'นักศึกษา' && normPos(u) !== '')).length;
 
-                    m.innerHTML = cards([['นักศึกษาทั้งหมด', st, '#3BB489', '#76C58C'], ['อาจารย์', t, '#0288D1', '#26A69A'], ['ผู้ดูแลระบบ', D.admins.length, '#4A2C6D', '#8e6bb8'], ['คำถามประเมิน', D.qs.length, '#F57C00', '#FFCA28']]) + 
-                    `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">` +
-                    box('<div class="font-semibold mb-2">สรุปภาพรวมเอกสารและข้อมูล</div>' + cvs('cv1')).replace('mt-4','') + 
-                    box('<div class="font-semibold mb-2">สัดส่วนบุคลากรในระบบ</div>' + cvs('cv2')).replace('mt-4','') +
-                    `</div>` +
-                    cards([['เอกสารประเมินทั้งหมด', D.docs.length, '#26A69A', '#AED581'], ['ประเมินรายวิชา', D.docs.filter(d => d.type == 'ประเมินรายวิชา').length, '#FF8A65', '#FFCA28'], ['ประเมินอาจารย์', D.docs.filter(d => d.type != 'ประเมินรายวิชา').length, '#0288D1', '#76C58C'], ['บันทึก LOG', D.logs.length, '#4A2C6D', '#EF5350']]).replace('grid ', 'grid mt-4 ');
+        // ===== User CRUD =====
+        async function cUsr(id) { const o = D.users.find(x => x.id == id), v = await form(o ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้', [{ k: 'u', l: 'Username' }, { k: 'p', l: 'Password' }, { k: 'n', l: 'ชื่อ-นามสกุล' }, { k: 'email', l: 'อีเมล', opt: 1, t: 'email' }, { k: 'pos', l: 'ตำแหน่ง', o: D.positions }, { k: 'st', l: 'สถานะ', o: ['ปฏิบัติงาน', 'ย้ายออก', 'ลาออก'] }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.users.push({ id: nid(D.users), ...v }); save('users'); log((o ? 'แก้ไข' : 'เพิ่ม') + 'ผู้ใช้: ' + v.n); }); ok('สำเร็จ'); V.usr(); }
+        async function dUsr(id) { if (!await cf('ลบผู้ใช้นี้?')) return; D.users = D.users.filter(x => x.id != id); save('users'); log('ลบผู้ใช้'); ok('ลบแล้ว'); V.usr(); }
+        async function expX() { const rows = D.users.map(u => ({ u: u.u, p: u.p, n: u.n, email: u.email || '', pos: u.pos || '', st: u.st || '' })); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'users'); XLSX.writeFile(wb, 'users.xlsx'); }
+        async function impX(i) { const f = i.files[0]; if (!f) return; await busy(async () => { const wb = XLSX.read(await f.arrayBuffer()), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); let n = 0; D.users = D.users || []; rows.forEach(r => { if (!r.u || !r.p || !r.n) return; if (!D.users.some(u => u.u === r.u)) { D.users.push({ id: nid(D.users), u: String(r.u).trim(), p: String(r.p).trim(), n: r.n, email: r.email || '', pos: r.pos || '', st: r.st || 'ปฏิบัติงาน' }); n++; } }); save('users'); log('นำเข้าผู้ใช้ ' + n + ' คน'); i.value = ''; }); ok('นำเข้าสำเร็จ'); V.usr(); }
+        
+        
+        
+        
+        
+        /* Settings and analytics helpers */
+        V.setting = () => {
+            const sets = D.inst || {};
+            const openVal = sets.openTime ? sets.openTime.slice(0,16) : '';
+            const closeVal = sets.closeTime ? sets.closeTime.slice(0,16) : '';
+            $('#mn').innerHTML = box(`<div class="font-semibold mb-3">ตั้งค่าระบบ</div><div class="space-y-3"><div><label class="text-sm">เปิดประเมิน (YYYY-MM-DDTHH:mm)</label><input id="inst_open" class="inp" type="text" value="${openVal}" placeholder="2025-02-01T08:00"></div><div><label class="text-sm">ปิดประเมิน</label><input id="inst_close" class="inp" type="text" value="${closeVal}" placeholder="2025-05-31T17:00"></div><div class="flex gap-2"><button class="btn" style="background:#3BB489" onclick="(() => { D.inst = D.inst || {}; D.inst.openTime = $('#inst_open').value; D.inst.closeTime = $('#inst_close').value; save('inst'); log('แก้ไขตั้งค่า'); notify('บันทึกสำเร็จ', 'success'); V.dash(); })()">บันทึก</button><button class="btn" style="background:#999" onclick="V.dash()">ยกเลิก</button></div></div>`);
+        };
+        const canEval = () => { if (!D.inst || !D.inst.openTime || !D.inst.closeTime) return true; const now = new Date(), op = new Date(D.inst.openTime), cl = new Date(D.inst.closeTime); return now >= op && now <= cl; };
+        
+        /* ---------- VIEWS ---------- */
+        
+        // ===== Question CRUD =====
+        async function cQ(id) { const o = D.qs.find(x => x.id == id), v = await form(o ? 'แก้ไขคำถาม' : 'เพิ่มคำถาม', [{ k: 'course_code', l: 'รหัสวิชา (ว่างหรือ ALL สำหรับทุกวิชา)', opt: 1 }, { k: 't', l: 'ประเภท', o: ['CLO', 'LLO', 'อาจารย์'] }, { k: 'question_text', l: 'คำถาม', t: 'textarea' }], o); if (!v) return; await busy(async () => { if (o) Object.assign(o, v); else D.qs.push({ id: nid(D.qs), ...v }); save(); log((o ? 'แก้ไข' : 'เพิ่ม') + 'คำถาม'); }); ok('สำเร็จ'); V.qs(); }
+        async function dQ(id) { if (!await cf('ลบคำถามนี้?')) return; D.qs = D.qs.filter(x => x.id != id); save(); log('ลบคำถาม'); ok('ลบแล้ว'); V.qs(); }
+        async function expQ() { const rows = D.qs.map(q => ({ course_code: G(q, 'course_code', 'courseCode', 'course'), t: q.t || 'CLO', question_text: q.question_text || q.questionText || q.q || q.text })); const csv = [['course_code', 't', 'question_text'], ...rows.map(r => [r.course_code || '', r.t, r.question_text])].map(x => x.map(s => '"' + String(s).replace(/"/g, '""') + '"').join(',')).join('\n'); download(csv, 'questions.csv', 'text/csv'); }
+        async function impQ(i) { const f = i.files[0]; if (!f) return; await busy(async () => { const c = await f.text(), rows = c.split('\n').slice(1).filter(x => x.trim()); let n = 0; D.qs = D.qs || []; rows.forEach(row => { const [cc, t, qt] = row.split(',').map(x => x.replace(/^"|"$/g, '').replace(/""/g, '"')); if (cc && t && qt) { if (!D.qs.some(q => (G(q, 'course_code', 'courseCode', 'course') || '') === (cc || '') && q.t === t && (q.question_text || q.questionText || q.q || q.text) === qt)) { D.qs.push({ id: nid(D.qs), course_code: cc, t, question_text: qt }); n++; } } }); save(); log('นำเข้าคำถาม ' + n + ' รายการ'); i.value = ''; }); ok('นำเข้าสำเร็จ'); V.qs(); }
+        const download = (data, name, type) => { const blob = new Blob([data], { type }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
+        
+
+        // ===== Evaluation Time Settings =====
+        
+        D.inst = s;
+            save('inst');
+            log('แก้ไขตั้งค่าระบบ');
+            notify('บันทึกสำเร็จ', 'success');
+            V.dash();
+        };
+        const canEval = () => {
+            if (!D.inst || !D.inst.openTime || !D.inst.closeTime) return true;
+            const now = new Date(), op = new Date(D.inst.openTime), cl = new Date(D.inst.closeTime);
+            return now >= op && now <= cl;
+        };
+        
+        
+        const updateDashboard = () => {
+            if (ME.role !== 'admin') return;
+            const stats = getAnalytics();
+            const enr = (D.enrollments || []).length;
+            const teach = (D.teaching || []).length;
+            const users = D.users.length;
+            const pending = enr - new Set((D.docs || []).map(d => d.uid)).size * (1 + teach/enr);
+            const html = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="bg-blue-50 p-3 rounded-lg"><div class="text-2xl font-bold text-blue-600">${enr}</div><div class="text-xs text-gray-600">นักศึกษา</div></div>
+                <div class="bg-purple-50 p-3 rounded-lg"><div class="text-2xl font-bold text-purple-600">${teach}</div><div class="text-xs text-gray-600">ครั้งสอน</div></div>
+                <div class="bg-green-50 p-3 rounded-lg"><div class="text-2xl font-bold text-green-600">${stats.count}</div><div class="text-xs text-gray-600">ส่งแล้ว</div></div>
+                <div class="bg-orange-50 p-3 rounded-lg"><div class="text-2xl font-bold text-orange-600">${Math.round(stats.count*100/(enr*(teach/enr+1))||0)}%</div><div class="text-xs text-gray-600">ความสำเร็จ</div></div>
+            </div>
+            ${stats.count ? `<div class="bg-gray-50 p-3 rounded-lg text-sm"><div>คะแนนเฉลี่ยทั้งหมด: <b>${stats.avg}</b> | สูงสุด: ${stats.max} | ต่ำสุด: ${stats.min}</div></div>` : ''}
+            `;
+            const elem = document.getElementById('dash-stats');
+            if (elem) elem.innerHTML = html;
+        };
+        
+                const V = {
+
+
+                const T = [];
+                if (ME.role == 'admin') {
+                    const stats = getAnalytics();
+                    const enr = (D.enrollments || []).length;
+                    const teach = (D.teaching || []).length;
+                    const docs = (D.docs || []).length;
+                    const pct = enr > 0 ? Math.round(docs * 100 / (enr * Math.max(1, 1 + teach/enr))) : 0;
                     
-                    chart('cv1', 'bar', ['อาจารย์', 'ผู้ดูแลระบบ', 'คำถาม', 'เอกสาร', 'LOG'], [t, D.admins.length, D.qs.length, D.docs.length, D.logs.length]);
-                    chart('cv2', 'pie', ['นักศึกษา', 'อาจารย์', 'ผู้ดูแลระบบ'], [st, t, D.admins.length], 0, ['#3BB489', '#0288D1', '#4A2C6D']);
-                } else if (ME.role == 'teacher') {
-                    const my = D.docs.filter(d => d.teacher == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน'), mm = {}; my.forEach(d => (mm[d.course] = mm[d.course] || []).push(d.score));
-                    const av = a => a.length ? +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(2) : 0;
-                    const sdv = (a, m) => a.length > 1 ? +(Math.sqrt(a.reduce((s, x) => s + Math.pow(x - m, 2), 0) / (a.length - 1))).toFixed(2) : 0;
-                    const ag = Object.entries(mm).map(([k, a]) => { const mean = av(a); return { k, n: a.length, avg: mean, sd: sdv(a, mean) }; });
-                    const t = av(my.map(d => d.score));
+                    T.push(`<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div style="background:#e3f2fd;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#1976d2">${enr}</div><div style="font-size:0.75rem;color:#555">นักศึกษา</div></div>
+                        <div style="background:#f3e5f5;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#7b1fa2">${teach}</div><div style="font-size:0.75rem;color:#555">ครั้งสอน</div></div>
+                        <div style="background:#e8f5e9;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#388e3c">${docs}</div><div style="font-size:0.75rem;color:#555">ส่งแล้ว</div></div>
+                        <div style="background:#fff3e0;padding:1rem;border-radius:0.5rem"><div style="font-size:1.5rem;font-weight:bold;color:#f57c00">${pct}%</div><div style="font-size:0.75rem;color:#555">ความสำเร็จ</div></div>
+                    </div>`);
                     
-                    m.innerHTML = cards([['จำนวนการประเมิน', my.length, '#3BB489', '#76C58C'], ['คะแนนเฉลี่ยรวม', my.length ? t : '-', '#0288D1', '#26A69A'], ['จำนวนรายวิชา', ag.length, '#F57C00', '#FFCA28'], ['ผลประเมินระดับ', my.length ? lv(t, 1) : '-', '#4A2C6D', '#8e6bb8']]) + 
-                    box('<div class="font-semibold mb-2">คะแนนเฉลี่ยรายวิชา (เต็ม 5) จากการประเมินของนักศึกษา</div>' + cvs('cv1')) + 
-                    box(dt('tdash', [['k', 'รายวิชา'], ['n', 'จำนวนผู้ประเมิน'], ['avg', 'คะแนนเฉลี่ย'], ['sd', 'S.D.'], ['l', 'ระดับ', r => lv(r.avg)]], ag)); 
-                    chart('cv1', 'bar', ag.map(a => a.k), ag.map(a => a.avg), 1);
-                } else {
-                    const my = D.docs.filter(d => d.uid == ME.u), a = my.filter(d => d.type == 'ประเมินรายวิชา').length, b = my.length - a;
-                    const getF = (...keys) => { for(let k of keys) { if(ME[k]) return ME[k]; } return '-'; };
-                    const prog = getF('หลักสูตร', 'program');
-                    const branch = getF('สาขาวิชา', 'สาขา', 'major');
-                    const term = getF('ภาคการศึกษาที่เข้าเรียน', 'ภาคการศึกษา', 'เทอม', 'semester');
+                    if (stats.count > 0) {
+                        T.push(`<div style="background:#f5f5f5;padding:1rem;border-radius:0.5rem;margin-bottom:1rem">
+                            <div style="font-size:0.9rem"><b>ผลประเมิน</b> | เฉลี่ย: ${stats.avg} | สูงสุด: ${stats.max.toFixed(2)} | ต่ำสุด: ${stats.min.toFixed(2)}</div>
+                        </div>`);
+                    }
                     
-                    m.innerHTML = box(`
-                        <div class="mb-2">
-                            <h3 class="text-lg font-bold text-[#3BB489] border-b pb-2 mb-3">🎓 ข้อมูลประจำตัวนักศึกษา</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div class="bg-[#f8fdfa] p-3 rounded-lg border border-[#e8f6f0]">
-                                    <div class="text-xs text-gray-500 mb-1">รหัสนักศึกษา / ชื่อ-สกุล</div>
-                                    <div class="font-semibold text-gray-800 text-sm">${ME.u || '-'}</div>
-                                    <div class="text-sm text-gray-600 truncate">${ME.n || '-'}</div>
-                                </div>
-                                <div class="bg-[#f8fdfa] p-3 rounded-lg border border-[#e8f6f0]">
-                                    <div class="text-xs text-gray-500 mb-1">หลักสูตร</div>
-                                    <div class="font-semibold text-gray-800 text-sm truncate">${prog}</div>
-                                </div>
-                                <div class="bg-[#f8fdfa] p-3 rounded-lg border border-[#e8f6f0]">
-                                    <div class="text-xs text-gray-500 mb-1">สาขาวิชา</div>
-                                    <div class="font-semibold text-gray-800 text-sm truncate">${branch}</div>
-                                </div>
-                                <div class="bg-[#f8fdfa] p-3 rounded-lg border border-[#e8f6f0]">
-                                    <div class="text-xs text-gray-500 mb-1">ภาคการศึกษาที่เข้าเรียน</div>
-                                    <div class="font-semibold text-gray-800 text-sm truncate">${term}</div>
-                                </div>
-                            </div>
-                        </div>
-                    `).replace('mt-4','') + 
-                    cards([['เอกสารทั้งหมด', my.length, '#3BB489', '#76C58C'], ['ประเมินรายวิชา', a, '#0288D1', '#26A69A'], ['ประเมินอาจารย์ผู้สอน', b, '#F57C00', '#FFCA28'], ['คะแนนเฉลี่ย', my.length ? (my.reduce((s, d) => s + d.score, 0) / my.length).toFixed(2) : '-', '#4A2C6D', '#8e6bb8']]).replace('grid ', 'grid mt-4 ') + 
-                    box('<div class="font-semibold mb-2">สัดส่วนประเภทเอกสารที่ประเมินแล้ว</div>' + cvs('cv1')); 
-                    chart('cv1', 'pie', ['ประเมินรายวิชา', 'ประเมินอาจารย์'], [a, b], 0, ['#0288D1', '#F57C00']);
+                    T.push(`<button class="btn" style="background:#666;color:#fff" onclick="V.setting()" title="ตั้งค่า">⚙️ ตั้งค่าระบบ</button>`);
                 }
+                
+                const menus = ME.role === 'admin' ? 
+                    [['dash','แดชบอร์ด','rep'],['inst','ข้อมูลหลักสูตร','doc'],['pos','สำนักอำนาจ','doc'],['adm','ผู้ดูแลระบบ','adm'],['usr','จัดการผู้ใช้','adm'],['crs','จัดการรายวิชา','doc'],['teach','มอบหมายอาจารย์','usr'],['enr','ลงทะเบียน','usr'],['qs','คำถาม','doc'],['docs','แบบประเมิน','doc'],['report','รายงาน','rep'],['track','ติดตาม','rep'],['setting','ตั้งค่า','adm'],['gs','Google Sheet','adm']] :
+                    ME.role === 'teacher' ?
+                    [['docs','แบบประเมิน','doc'],['treport','ผลประเมิน','rep'],['myeval','ประเมินของฉัน','rep']] :
+                    [['docs','แบบประเมิน','doc'],['myeval','ผลประเมิน','rep']];
+                
+                $('#sd').innerHTML = menus.map(([id,n,t]) => `<div class="p-2 hover:bg-gray-200 cursor-pointer rounded" onclick="V.${id}()">${n}</div>`).join('');
+                $('#mn').innerHTML = box(T.join(''));
             },
             inst() {
                 const i = D.inst; $('#mn').innerHTML = box(`<div class="max-w-lg space-y-3"><label>ชื่อสถาบัน</label><input id="in" class="inp" value="${i.name}"><label>ชื่อหน่วยงาน (แสดงที่ footer)</label><input id="io" class="inp" value="${i.org}"><label>โลโก้สถาบัน</label><input type="file" accept="image/*" id="il" class="inp" onchange="prev(this)"><img id="ip" src="${i.logo}" class="w-28 h-28 object-contain border rounded-xl p-1"><div><button class="btn" style="background:#3BB489" onclick="saveInst()">บันทึกการแก้ไข</button></div></div>`);
@@ -560,7 +624,8 @@
             usr() {
                 $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">ข้อมูลผู้ใช้งาน</div><div class="flex flex-wrap gap-2"><button class="btn" style="background:#3BB489" onclick="cUsr()">+ เพิ่มผู้ใช้</button><button class="btn" style="background:#0288D1" onclick="expX()">ส่งออก Excel</button><label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel<input type="file" accept=".xlsx,.xls" hidden onchange="impX(this)"></label></div></div>` + dt('usr', [['u', 'Username'], ['p', 'Password', r => '••••'], ['n', 'ชื่อ-นามสกุล'], ['email', 'อีเมล', r => r.email || '-'], ['pos', 'ตำแหน่ง', r => badge(r.pos, r.pos == 'อาจารย์' ? '#0288D1' : '#3BB489')], ['st', 'สถานะ', r => stB(r.st)]], D.users, { act: r => ab(`cUsr(${r.id})`, `dUsr(${r.id})`) + (r.email ? `<button class="btn !px-3 !py-1 mt-1" style="background:#F57C00" onclick="sendNotify(${r.id})">🔔 แจ้งเตือน</button>` : '') }));
             },
-            qs() {
+            usr() { $('#mn').innerHTML = box(head('จัดการผู้ใช้งาน', '<button class="btn" style="background:#3BB489" onclick="cUsr()">+ เพิ่มผู้ใช้</button><button class="btn" style="background:#0288D1" onclick="expX()">ส่งออก Excel</button><label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel<input type="file" accept=".xlsx,.xls" hidden onchange="impX(this)"></label>') + dt('usr', [['u', 'Username'], ['p', 'Password', r => '••••'], ['n', 'ชื่อ-นามสกุล'], ['email', 'อีเมล'], ['pos', 'ตำแหน่ง'], ['st', 'สถานะ']], D.users, { act: r => ab(`cUsr(${r.id})`, `dUsr(${r.id})`) })); },
+                        qs() {
                 $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">คำถามประเมิน (CLOs / LLOs / อาจารย์ผู้สอน)</div><div class="flex flex-wrap gap-2"><button class="btn" style="background:#3BB489" onclick="cQ()">+ เพิ่ม</button><button class="btn" style="background:#0288D1" onclick="expQ()">ดาวน์โหลด CSV</button><label class="btn cursor-pointer" style="background:#4A2C6D">อัปโหลด CSV<input type="file" accept=".csv,text/csv" hidden onchange="impQ(this)"></label></div></div>` + dt('qs', [['course_code', 'รหัสวิชา', r => r.course_code || r.courseCode || r.course || '-'], ['t', 'ประเภท', r => badge(r.t, r.t == 'CLO' ? '#0288D1' : r.t == 'LLO' ? '#F57C00' : '#4A2C6D')], ['question_text', 'คำถาม', r => r.question_text || r.questionText || r.q || r.text || '-']], D.qs, { act: r => ab(`cQ(${r.id})`, `dQ(${r.id})`) }));
             },
             pdoc() {
@@ -601,7 +666,7 @@
                     <div class="hidden print:block text-center mb-6">
                         <h2 class="text-2xl font-bold">รายงานผลการประเมินการจัดการเรียนการสอน</h2>
                         <h3 class="text-lg">${D.inst.org}</h3>
-                        <p class="text-sm text-gray-500 mt-1">วันที่พิมพ์รายงาน: ${new Date().toLocaleDateString('th-TH')} | ประเภท: ${f.ty}</p>
+                        <p class="text-sm text-gray-500 mt-1">วันที่พิมพ์รายงาน: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} | ประเภท: ${f.ty}</p>
                     </div>`;
                 html += box(`<div class="font-semibold mb-3 no-print">ตัวกรองรายงาน</div><div class="grid grid-cols-2 lg:grid-cols-6 gap-3">${sl('g', 'จัดกลุ่มตาม', [['course', 'รายวิชา'], ['teacher', 'รายอาจารย์'], ['sem', 'รายภาคการศึกษา'], ['year', 'รายปีการศึกษา']], 0)}${sl('ty', 'ประเภท', ['ประเมินอาจารย์ผู้สอน', 'ประเมินรายวิชา'], 0)}${T ? '' : sl('t', 'อาจารย์', tl)}${sl('c', 'รายวิชา', U('course'))}${sl('s', 'ภาคการศึกษา', ['1', '2', '3'])}${sl('y', 'ปีการศึกษา', U('year'))}</div>`) + 
                 '<div class="mt-4">' + cards([['จำนวนการประเมิน', rows.length, '#3BB489', '#76C58C'], ['คะแนนเฉลี่ยรวม', rows.length ? tot : '-', '#0288D1', '#26A69A'], ['อัตราตอบกลับ', rr, '#F57C00', '#FFCA28'], ['ระดับผลประเมิน', rows.length ? lv(tot, 1) : '-', '#4A2C6D', '#8e6bb8']]) + '</div>' + 
@@ -624,7 +689,59 @@
         };
 
 
-        /* ---------- LINKED DATA: courses / teaching / enrollments / docs ---------- */
+        // ===== Theme =====
+        const toggleTheme = () => {
+            const html = document.documentElement;
+            const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        };
+        const initTheme = () => {
+            const saved = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+        };
+        initTheme();
+        
+        
+        // ===== Global Notification System =====
+        const notify = (msg, type='info', ms=3000) => {
+            const container = document.getElementById('notif-container') || (() => {
+                const c = document.createElement('div');
+                c.id = 'notif-container';
+                c.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem';
+                document.body.appendChild(c);
+                return c;
+            })();
+            const bg = type==='success'?'#d1fae5':type==='error'?'#fee2e2':'#dbeafe';
+            const txt = type==='success'?'#065f46':type==='error'?'#7f1d1d':'#0c2340';
+            const el = document.createElement('div');
+            el.style.cssText = `padding:1rem;border-radius:0.5rem;background:${bg};color:${txt};border:1px solid;font-size:0.9rem;animation:slideIn 0.3s ease;`;
+            el.textContent = msg;
+            container.appendChild(el);
+            if (ms) setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(() => el.remove(), 300); }, ms);
+        };
+        
+        
+        // ===== Analytics =====
+        const getAnalytics = () => {
+            const total = (D.docs || []).length;
+            const byType = {}; (D.docs || []).forEach(d => { byType[d.type] = (byType[d.type] || 0) + 1; });
+            const scores = (D.docs || []).map(d => d.score || 0).filter(s => s > 0);
+            const avg = scores.length ? (scores.reduce((a,b) => a+b) / scores.length).toFixed(2) : 0;
+            const [min, max] = [Math.min(...scores), Math.max(...scores)];
+            return { total, byType, avg, min, max, count: scores.length };
+        };
+        
+        
+        // ===== PDF Export =====
+        const exportReportPDF = (title, content) => {
+            const element = document.createElement('div');
+            element.innerHTML = content;
+            const opt = { margin: 10, filename: title + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'p', unit: 'mm', format: 'a4' } };
+            html2pdf().set(opt).from(element).save();
+        };
+        
+                /* ---------- LINKED DATA: courses / teaching / enrollments / docs ---------- */
         let PWBAD = 0;
         // แปลงชีต courses เดิม (course_code/course_name/หน่วยกิต, id ซ้ำ) ให้เป็นรูปแบบมาตรฐาน {id, code, name, credits}
         const normCourses = () => { const seen = new Set(); let mx = 0; (D.courses || []).forEach(c => mx = Math.max(mx, +c.id || 0));
@@ -697,29 +814,123 @@
             const T = [];
             (D.enrollments || []).filter(e => eS(e) === ME.u).forEach(e => {
                 const code = eC(e), sem = eSem(e), yr = eY(e);
-                const add = (type, teacher) => T.push({ code, name: courseOf(code).name, sem, yr, type, teacher, tname: teacher ? uName(teacher) : '', done: D.docs.some(d => d.uid == ME.u && d.type == type && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == teacher) });
-                add('ประเมินรายวิชา', '');
-                (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).forEach(t => add('ประเมินอาจารย์ผู้สอน', tI(t)));
+                // ประเมินรายวิชา
+                T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินรายวิชา', teachers: [], done: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) });
+                // ประเมินอาจารย์ (รวมเป็นแถวเดียวต่อวิชา)
+                const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t));
+                if (teachers.length) T.push({ code, name: courseOf(code).name, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, done: teachers.every(tid => D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == tid)) });
             });
             const n = T.filter(t => t.done).length, pc = T.length ? Math.round(n / T.length * 100) : 0;
             $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${T.length} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`).replace('mt-4', '') +
-                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class="btn !px-3 !py-1" style="background:#3BB489" onclick="doEval('${esc(r.code)}','${r.type}','${esc(r.teacher)}','${esc(r.sem)}','${esc(r.yr)}')">ประเมิน</button>` })) +
+                box(dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', r => r.done ? badge('ประเมินแล้ว', '#3BB489') : badge('ยังไม่ประเมิน', '#F57C00')]], T, { act: r => r.done ? '' : `<button class=\"btn !px-3 !py-1\" style=\"background:#3BB489\" onclick=\"doEval('${esc(r.code)}','${r.type}',${JSON.stringify(r.teachers)},'${esc(r.sem)}','${esc(r.yr)}')\">ประเมิน</button>` })) +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
-        async function doEval(code, type, teacher, sem, yr) {
-            const c = courseOf(code), isC = type === 'ประเมินรายวิชา', tn = teacher ? uName(teacher) : '';
-            const qs = D.qs.filter(q => { const t = String(q.t || '').trim(), qc = String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase(); if (isC === (t === 'อาจารย์')) return false; return !qc || qc === 'ALL' || qc === code.toUpperCase(); });
+        
+            myeval() {
+                const rows = D.docs.filter(d => d.uid === ME.u);
+                if (!rows.length) {
+                    $('#mn').innerHTML = box('<p class="text-center text-gray-500 py-4">ยังไม่มีแบบประเมินที่ส่งแล้ว</p>');
+                    return;
+                }
+                const grouped = {};
+                rows.forEach(d => {
+                    const k = d.courseCode + '|' + d.type + '|' + (d.teacher || 'รายวิชา');
+                    (grouped[k] = grouped[k] || []).push(d);
+                });
+                const items = Object.entries(grouped).map(([k, ds]) => {
+                    const d = ds[0];
+                    return { code: d.courseCode, course: d.course || d.courseCode, type: d.type, teacher: d.tname || '-', date: d.date, score: d.score, comment: d.comment };
+                });
+                $('#mn').innerHTML = box(head('ผลประเมินของฉัน') + dt('myeval', [['code', 'รายวิชา'], ['type', 'ประเภท'], ['teacher', 'อาจารย์'], ['score', 'คะแนนเฉลี่ย', r => r.score.toFixed(2)], ['date', 'วันที่ส่ง'], ['comment', 'ข้อเสนอแนะ', r => r.comment ? r.comment.substring(0,50)+'...' : '-']], items));
+            },
+            myeval() {
+                const rows = (D.docs || []).filter(d => d.uid === ME.u);
+                if (!rows.length) {
+                    $('#mn').innerHTML = box('<div class="text-center text-gray-500 py-8">ยังไม่มีแบบประเมินที่ส่งแล้ว</div>');
+                    return;
+                }
+                const items = rows.map(d => ({
+                    code: d.courseCode, name: d.course || d.courseCode, type: d.type,
+                    teacher: d.tname || 'รายวิชา', score: (d.score || 0).toFixed(2),
+                    date: d.date, comment: (d.comment || '-').substring(0, 40)
+                }));
+                const total = rows.length, avg = (rows.reduce((s,d) => s + (d.score || 0), 0) / total).toFixed(2);
+                $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ผลประเมินของฉัน (${total} รายการ, เฉลี่ย ${avg})</div>`) +
+                    box(dt('myeval', [['code','รายวิชา',r=>esc(r.code+' '+r.name)], ['type','ประเภท',r=>badge(r.type,r.type.includes('วิชา')?'#0288D1':'#F57C00')], ['teacher','อาจารย์',r=>esc(r.teacher)], ['score','คะแนน',r=>r.score], ['date','วันที่',r=>r.date], ['comment','ข้อเสนอแนะ',r=>esc(r.comment)]], items));
+            },
+
+            treport() {
+                const myCodes = new Set((D.teaching || []).filter(t => tI(t) === ME.u).map(t => eC(t).toUpperCase()));
+                if (!myCodes.size) {
+                    $('#mn').innerHTML = box('<div class="text-center text-gray-500 py-8">คุณไม่ได้มอบหมายสอนรายวิชาใด</div>');
+                    return;
+                }
+                let rows = (D.docs || []).filter(d => myCodes.has((d.courseCode || '').toUpperCase()));
+                const f = S.f || '';
+                if (f) rows = rows.filter(d => d.courseCode === f);
+                
+                if (!rows.length) {
+                    $('#mn').innerHTML = box(head('ผลประเมินรายวิชาที่สอน', 
+                        `<select class="inp !w-60" onchange="S.f=this.value;V.treport()"><option value="">— ทั้งหมด —</option>${[...myCodes].map(c => `<option ${c===f?'selected':''}>${c}</option>`).join('')}</select>`) +
+                        '<div class="text-center text-gray-500 py-8">ยังไม่มีการประเมิน</div>');
+                    return;
+                }
+                
+                const byCode = {};
+                rows.forEach(d => {
+                    const k = d.courseCode; (byCode[k] = byCode[k] || []).push(d);
+                });
+                
+                const summary = Object.entries(byCode).map(([code, docs]) => {
+                    const scores = docs.map(d => d.score || 0).filter(s => s > 0);
+                    const avg = scores.length ? (scores.reduce((a,b)=>a+b)/scores.length).toFixed(2) : 0;
+                    return { code, course: courseOf(code).name, n: docs.length, avg, min: Math.min(...scores), max: Math.max(...scores) };
+                });
+                
+                $('#mn').innerHTML = box(head('ผลประเมินรายวิชาที่สอน', 
+                    `<select class="inp !w-60" onchange="S.f=this.value;V.treport()"><option value="">— ทั้งหมด —</option>${[...myCodes].map(c => `<option ${c===f?'selected':''}>${c}</option>`).join('')}</select>`)) +
+                    box(dt('tsumm', [['code','รายวิชา'], ['course','ชื่อ'], ['n','จำนวน'], ['avg','เฉลี่ย'], ['min','ต่ำสุด'], ['max','สูงสุด']], summary)) +
+                    box('<div class="font-semibold mb-2">รายละเอียดแต่ละผู้ตอบ</div>' + dt('tdet', [['uid','ชื่อนักศึกษา',r=>esc(uName(r.uid))], ['type','ประเภท'], ['score','คะแนน',r=>(r.score||0).toFixed(2)], ['comment','ข้อเสนอแนะ',r=>esc((r.comment||'-').substring(0,30))], ['date','วันที่']], rows));
+            },
+
+            
+        async function doEval(code, type, teachers, sem, yr) {
+            // ตรวจสอบว่าผู้ใช้ลงทะเบียนวิชานี้จริงๆ
+            const enrolledHere = (D.enrollments || []).some(e => eS(e) === ME.u && eC(e).toUpperCase() === code.toUpperCase() && eSem(e) === sem && eY(e) === yr);
+            if (!enrolledHere) return err('คุณไม่ได้ลงทะเบียนวิชานี้ในภาคการศึกษา ' + sem + '/' + yr);
+            
+            const c = courseOf(code), isC = type === 'ประเมินรายวิชา';
+            let qs = D.qs.filter(q => { const t = String(q.t || '').trim(), qc = String(q.course_code || q.courseCode || q.course || '').trim().toUpperCase(); if (isC === (t === 'อาจารย์')) return false; return !qc || qc === 'ALL' || qc === code.toUpperCase(); });
             if (!qs.length) return err('ยังไม่มีคำถามประเมินสำหรับรายการนี้ กรุณาติดต่อผู้ดูแลระบบ');
+            
+            let selectedTeachers = isC ? [] : teachers;
+            if (!isC && teachers.length > 1) {
+                const r = await Swal.fire({
+                    title: 'เลือกอาจารย์ที่ต้องการประเมิน', width: 500, showCancelButton: true, confirmButtonText: 'ถัดไป', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
+                    html: `<div class="text-left space-y-2"><label class="text-sm">อาจารย์ผู้สอน (เลือกได้หลายคน)</label><div class="border rounded-lg p-2 max-h-40 overflow-y-auto">${teachers.map(tid => `<label class="flex gap-2 items-center py-1 text-sm cursor-pointer"><input type="checkbox" class="t_sel" value="${esc(tid)}" checked><span>${esc(uName(tid))}</span></label>`).join('')}</div></div>`,
+                    preConfirm: () => { selectedTeachers = [...document.querySelectorAll('.t_sel:checked')].map(x => x.value); if (!selectedTeachers.length) { Swal.showValidationMessage('กรุณาเลือกอาจารย์อย่างน้อย 1 คน'); return false; } return true; }
+                });
+                if (!r.isConfirmed) return;
+            }
+            
             const r = await Swal.fire({
                 title: type, width: 680, showCancelButton: true, confirmButtonText: 'ส่งแบบประเมิน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
-                html: `<div class="text-left"><div class="bg-[#e8f6f0] p-3 rounded-lg text-sm mb-3"><b>${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${tn ? `<br>👩‍🏫 อาจารย์ผู้สอน: ${esc(tn)}` : ''}</div><div class="max-h-[40vh] overflow-y-auto border rounded-lg p-2">${qs.map(q => `<div class="flex gap-2 items-start py-2 border-b text-sm"><span class="flex-1">${esc(qText(q))}</span><select class="inp !w-20 qs shrink-0" data-q="${q.id}" style="padding:.25rem"><option value="">เลือก</option>${[5, 4, 3, 2, 1].map(n => `<option>${n}</option>`).join('')}</select></div>`).join('')}</div><label class="text-sm font-semibold mt-3 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp" rows="3"></textarea></div>`,
+                html: `<div class="text-left"><div class="bg-[#e8f6f0] p-3 rounded-lg text-sm mb-3"><b>${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br>👩‍🏫 ประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}` : ''}</div><div class="max-h-[40vh] overflow-y-auto border rounded-lg p-2">${qs.map(q => `<div class="flex gap-2 items-start py-2 border-b text-sm"><span class="flex-1">${esc(qText(q))}</span><select class="inp !w-20 qs shrink-0" data-q="${q.id}" style="padding:.25rem"><option value="">เลือก</option>${[5, 4, 3, 2, 1].map(n => `<option>${n}</option>`).join('')}</select></div>`).join('')}</div><label class="text-sm font-semibold mt-3 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp" rows="3"></textarea></div>`,
                 preConfirm: () => { const a = [...document.querySelectorAll('.qs')].map(x => ({ q: +x.dataset.q, v: +x.value })); if (a.some(x => !x.v)) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อ'); return false; } return { a, comment: $('#dcomment').value.trim() }; }
             });
             if (!r.isConfirmed) return; const a = r.value.a;
-            const doc = { id: Date.now(), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH'), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: tn, score: +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2), answers: a, comment: r.value.comment };
-            let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
-            if (!res.ok) return err(res.error || 'ส่งแบบประเมินไม่สำเร็จ');
-            D.docs.push(doc); save(); log('ส่งแบบประเมิน: ' + type + ' ' + code); ok('บันทึกแล้ว'); V.docs();
+            
+            // ส่งแบบประเมินแยกต่ออาจารย์แต่ละคน เพื่อให้ระบบตรวจไม่ซ้ำ
+            let submitted = 0, failed = [];
+            for (const teacher of selectedTeachers) {
+                const tn = uName(teacher);
+                const doc = { id: Date.now() + Math.random(), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: tn, score: +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2), answers: a, comment: r.value.comment };
+                let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
+                if (!res.ok) { failed.push(tn + ': ' + (res.error || 'ไม่สำเร็จ')); } else { submitted++; }
+            }
+            if (failed.length) return err('ส่งได้ ' + submitted + ' อาจารย์ แต่ล้มเหลว: ' + failed.join(', '));
+            D.docs.push(...selectedTeachers.map((teacher, i) => ({ id: Date.now() + i, uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type, course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher, tname: uName(teacher), score: +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2), answers: a, comment: r.value.comment })));
+            save(); log('ส่งแบบประเมิน: ' + type + ' ' + code + ' ' + submitted + ' อาจารย์'); ok('บันทึกแล้ว'); V.docs();
         }
 
         // แอดมิน: ติดตามผลการประเมิน + ตรวจความสัมพันธ์ของข้อมูลระหว่างชีต
@@ -737,11 +948,47 @@
             $('#mn').innerHTML = (w.length ? `<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-xl p-3 text-sm">⚠️ ตรวจพบความไม่สอดคล้องของข้อมูล<ul class="list-disc pl-5">${w.map(x => `<li>${x}</li>`).join('')}</ul></div>` : '') +
                 box('<div class="font-semibold mb-2">ความคืบหน้าการประเมินรายวิชา/อาจารย์ (ลงทะเบียน × (1 รายวิชา + จำนวนอาจารย์))</div>' + dt('trk', [['k', 'รายวิชา'], ['term', 'ภาค/ปี'], ['n', 'นศ.'], ['t', 'อาจารย์'], ['dn', 'ส่งแล้ว', r => r.dn + '/' + r.need], ['pct', 'ร้อยละ', r => r.pct + '%']], rows, { act: r => r.pend.length ? `<button class="btn !px-3 !py-1" style="background:#F57C00" onclick="remind(${r.i})">เตือนผู้ค้าง (${r.pend.length})</button>` : badge('ครบ', '#3BB489') }));
         };
+        
         async function remind(i) {
-            const r = S.trk[i], em = r.pend.map(s => D.users.find(u => String(u.u) == s)).filter(u => u && u.email);
-            if (!em.length) return err('ไม่มีผู้ค้างประเมินที่มีอีเมลในระบบ'); if (!await cf(`ส่งอีเมลเตือน ${em.length} คน?`)) return;
-            await busy(async () => { for (const u of em) await post({ action: 'notify', to: u.email, subject: 'แจ้งเตือนทำแบบประเมิน ' + r.k, body: `เรียน ${u.n}\n\nขอแจ้งให้ท่านเข้าสู่ระบบเพื่อทำแบบประเมินรายวิชา ${r.k} ภาคการศึกษา ${r.term}` }); log('ส่งอีเมลเตือน ' + r.k); }); ok('ส่งแล้ว');
+            const r = S.trk[i];
+            const em = r.pend.map(s => D.users.find(u => String(u.u) == s)).filter(u => u && u.email);
+            if (!em.length) return err('ไม่มีผู้ค้างประเมินที่มีอีเมลในระบบ');
+            
+            const rMsg = await Swal.fire({
+                title: 'ข้อความอีเมล',
+                input: 'textarea',
+                inputValue: `เรียน [ชื่อ]
+
+ขอแจ้งให้ท่านเข้าสู่ระบบเพื่อทำแบบประเมิน ${r.k} ภาคการศึกษา ${r.term}
+
+ขอบคุณครับ`,
+                inputPlaceholder: 'กรอกข้อความอีเมล',
+                showCancelButton: true,
+                confirmButtonText: 'ส่ง',
+                cancelButtonText: 'ยกเลิก'
+            });
+            if (!rMsg.isConfirmed) return;
+            
+            if (!await cf(`ส่งอีเมลเตือน ${em.length} คน?`)) return;
+            
+            let sent = 0, failed = [];
+            await busy(async () => {
+                for (const u of em) {
+                    const msg = rMsg.value.replace('[ชื่อ]', u.n);
+                    const res = await post({ 
+                        action: 'notify', 
+                        to: u.email, 
+                        subject: 'เตือนทำแบบประเมิน ' + r.k, 
+                        body: msg 
+                    });
+                    if (res.ok) sent++; else failed.push(u.n);
+                }
+                log('ส่งอีเมลเตือน ' + r.k + ' ' + sent + ' คน');
+            });
+            if (failed.length) err('ส่งได้ ' + sent + ' แต่ล้มเหลว: ' + failed.join(', '));
+            else notify('ส่งอีเมลสำเร็จ ' + sent + ' คน', 'success');
         }
+
 
         /* ---------- actions ---------- */
         function prev(i) { const f = i.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => $('#ip').src = r.result; r.readAsDataURL(f); }
@@ -835,7 +1082,7 @@
                     return { sem: $('#ds').value, year: $('#dy').value.trim(), type: t, course: c, teacher: targetTeacher, tname: targetTeacher ? (tt.selectedOptions[0] || {}).text || '' : '', score: s.length ? +(s.reduce((a, b) => a + b, 0) / s.length).toFixed(2) : 0, comment: $('#dcomment').value.trim() } 
                 }
             });
-            if (!r.isConfirmed) return; await busy(async () => { D.docs.push({ id: nid(D.docs), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH'), ...r.value }); save(); log('ส่งแบบประเมิน: ' + r.value.type); }); ok('บันทึกแล้ว'); V.docs();
+            if (!r.isConfirmed) return; await busy(async () => { D.docs.push({ id: nid(D.docs), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), ...r.value }); save(); log('ส่งแบบประเมิน: ' + r.value.type); }); ok('บันทึกแล้ว'); V.docs();
         }
 
         function qf() { 
@@ -945,7 +1192,55 @@
         async function gsPull() { if (!cfg().url) return err('กรุณาตั้งค่า URL ก่อน'); if (!await cf('ข้อมูลในระบบจะถูกแทนที่ด้วยข้อมูลจาก Sheet')) return; let r, e0; await busy(async () => { try { r = await gpull(); } catch (e) { e0 = e; } }); if (e0) err('ดึงข้อมูลไม่สำเร็จ: ' + e0.message); else ok('ดึงข้อมูลแล้ว'); V.gs(); }
         async function gsOff() { if (!await cf('ยกเลิกการเชื่อมต่อ Google Sheet?')) return; try { localStorage.removeItem('nsys_gs'); } catch (e) { } GST('ยังไม่ได้เชื่อมต่อ', 0); log('ยกเลิกการเชื่อมต่อ Google Sheet'); V.gs(); }
 
-        /* ---------- init ---------- */
+
+        // ===== PWA & Offline Support =====
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE = 'eval-v1';
+                const urlsToCache = ['/', '/index.html'];
+                
+                self.addEventListener('install', e => {
+                    e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(urlsToCache)).then(() => self.skipWaiting()));
+                });
+                
+                self.addEventListener('activate', e => {
+                    e.waitUntil(caches.keys().then(names => Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)))).then(() => self.clients.claim()));
+                });
+                
+                self.addEventListener('fetch', e => {
+                    if (e.request.method !== 'GET') return;
+                    e.respondWith(
+                        caches.match(e.request).then(r => r || fetch(e.request).then(r => {
+                            if (!r || r.status !== 200) return r;
+                            const cache = caches.open(CACHE);
+                            cache.then(c => c.put(e.request, r.clone()));
+                            return r;
+                        }).catch(() => new Response('Offline', { status: 503 })))
+                    );
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl, { scope: './' }).then(() => {
+                console.log('Service Worker registered');
+            }).catch(err => console.warn('SW error:', err));
+        }
+        
+        // Local storage data sync for offline
+        const syncData = () => {
+            try {
+                const key = 'eval_' + ME.u;
+                localStorage.setItem(key, JSON.stringify({ data: D, ts: Date.now() }));
+                if (!navigator.onLine) notify('ทำงานในโหมด Offline - ข้อมูลจะ sync เมื่อออนไลน์', 'info', 5000);
+            } catch (e) {
+                console.warn('Storage quota exceeded:', e);
+            }
+        };
+        
+        window.addEventListener('online', () => { notify('กลับออนไลน์ - ซิงก์ข้อมูล', 'success'); gpull().catch(e => console.warn('Sync error:', e)); });
+        window.addEventListener('offline', () => { notify('ออฟไลน์ - ข้อมูลบันทึกในอุปกรณ์', 'info', 3000); });
+        
+                /* ---------- init ---------- */
         const initLoad = () => {
             normCourses();
             // 1) แสดงหน้าเว็บทันทีจาก localStorage cache (ไม่ต้องรอดึงข้อมูลจาก Sheet)
