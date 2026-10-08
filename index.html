@@ -116,7 +116,7 @@
             const c = cfg(); if (!c.url || c.url.includes('วาง_WEB_APP_URL_')) return Promise.resolve(); clearTimeout(gt); if (!DIRTY.size) return Promise.resolve(1);
             const go = () => fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.tk, data: snap() })
             }).then(r => r.json()).then(j => { if (!j.ok) throw Error(j.error); GST('ซิงก์ล่าสุด ' + new Date().toLocaleTimeString('th-TH'), 1); return 1;
-            }).catch(e => { LASTK.forEach(k => DIRTY.add(k)); GST('ซิงก์ไม่สำเร็จ: ' + e.message, 0); return 0; });
+            }).catch(e => { LASTK.forEach(k => DIRTY.add(k)); GST('ซิงก์ไม่สำเร็จ: ' + e.message, 0); try { Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'บันทึกขึ้น Google Sheet ไม่สำเร็จ: ' + e.message, timer: 6000, showConfirmButton: false }); } catch (_) { } return 0; });
             if (now) return go(); gt = setTimeout(go, 1500); return Promise.resolve();
         }
         
@@ -661,12 +661,23 @@
             v.ids.forEach(i => { if (!D.teaching.some(t => tI(t) == i && eC(t) == v.c && eSem(t) == v.s && eY(t) == v.y)) { D.teaching.push({ id: nid(D.teaching), courseCode: v.c, instructorId: i, semester: v.s, academic_year: v.y }); n++; } });
             save('teaching'); log('มอบหมายอาจารย์ ' + n + ' คน → ' + v.c); ok(n ? 'เพิ่ม ' + n + ' คน' : 'มีรายการนี้อยู่แล้ว'); V.teach();
         }
+        const chkList = (id, items, ph) => `<input class="inp mb-1" placeholder="${ph}" oninput="document.querySelectorAll('#${id} .t_i').forEach(e=>e.style.display=e.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')"><div class="text-right text-xs mb-1"><a href="#" class="text-[#3BB489]" onclick="document.querySelectorAll('#${id} .t_i').forEach(e=>{if(e.style.display!=='none')e.querySelector('input').checked=true});return false">เลือกทั้งหมดที่แสดง</a></div><div id="${id}" class="border rounded-lg p-2 max-h-40 overflow-y-auto">${items.map(x => `<label class="t_i flex gap-2 items-center py-1 text-sm cursor-pointer"><input type="checkbox" value="${esc(x[0])}"><span>${esc(x[1])}</span></label>`).join('')}</div>`;
         async function cEnr() {
             const st = D.users.filter(u => String(u.pos || '').trim() === 'นักศึกษา');
-            const v = await form('ลงทะเบียนนักศึกษา', [{ k: 'studentId', l: 'นักศึกษา', o: st.map(u => u.u + ' - ' + u.n) }, { k: 'courseCode', l: 'รายวิชา', o: courseOpts() }, { k: 'semester', l: 'ภาคการศึกษา', o: ['1', '2', '3'] }, { k: 'academic_year', l: 'ปีการศึกษา (พ.ศ.)', t: 'number' }], { academic_year: new Date().getFullYear() + 543 });
-            if (!v) return; v.studentId = pick(v.studentId); v.courseCode = pick(v.courseCode);
-            D.enrollments = D.enrollments || []; D.enrollments.push({ id: nid(D.enrollments), ...v }); save('enrollments'); log('ลงทะเบียน ' + v.studentId + ' → ' + v.courseCode); ok('สำเร็จ'); V.enr();
+            const r = await Swal.fire({
+                title: 'ลงทะเบียนนักศึกษา', width: 600, showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489',
+                html: `<div class="text-left space-y-2"><div><label class="text-sm">นักศึกษา (เลือกได้หลายคน)</label>${chkList('t_st', st.map(u => [u.u, u.u + ' - ' + u.n]), 'ค้นหารหัส/ชื่อนักศึกษา...')}</div>
+                <div><label class="text-sm">รายวิชาที่เรียน (เลือกได้หลายวิชา)</label>${chkList('t_cc', (D.courses || []).map(c => [cCode(c), cCode(c) + ' - ' + G(c, 'name', 'course_name')]), 'ค้นหารายวิชา...')}</div>
+                <div class="grid grid-cols-2 gap-2"><div><label class="text-sm">ภาคการศึกษา</label><select id="t_s" class="inp"><option>1</option><option>2</option><option>3</option></select></div><div><label class="text-sm">ปีการศึกษา (พ.ศ.)</label><input id="t_y" type="number" class="inp" value="${new Date().getFullYear() + 543}"></div></div></div>`,
+                preConfirm: () => { const g = id => [...document.querySelectorAll('#' + id + ' input:checked')].map(x => x.value), s = g('t_st'), c = g('t_cc'), y = $('#t_y').value.trim(); if (!s.length || !c.length || !y) { Swal.showValidationMessage('กรุณาเลือกนักศึกษา รายวิชา และปีการศึกษาให้ครบ'); return false; } return { s, c, sem: $('#t_s').value, y }; }
+            });
+            if (!r.isConfirmed) return; const v = r.value; D.enrollments = D.enrollments || []; let n = 0;
+            v.s.forEach(sid => v.c.forEach(cc => { if (!D.enrollments.some(e => eS(e) == sid && eC(e) == cc && eSem(e) == v.sem && eY(e) == v.y)) { D.enrollments.push({ id: nid(D.enrollments), studentId: sid, courseCode: cc, semester: v.sem, academic_year: v.y }); n++; } }));
+            save('enrollments'); log('ลงทะเบียน ' + n + ' รายการ'); ok(n ? 'เพิ่ม ' + n + ' รายการ' : 'มีรายการนี้อยู่แล้ว'); V.enr();
         }
+        const badEnr = () => (D.enrollments || []).filter(e => !eS(e) || !eC(e) || !eSem(e) || !eY(e));
+        const badEnrBtn = () => badEnr().length ? `<button class="btn" style="background:#EF5350" onclick="cleanEnr()">ลบรายการข้อมูลไม่ครบ (${badEnr().length})</button>` : '';
+        async function cleanEnr() { if (!await cf('ลบรายการลงทะเบียนที่ข้อมูลไม่ครบ ' + badEnr().length + ' รายการ?')) return; const b = new Set(badEnr()); D.enrollments = D.enrollments.filter(e => !b.has(e)); save('enrollments'); log('ลบรายการลงทะเบียนที่ข้อมูลไม่ครบ'); ok('ลบแล้ว'); V.enr(); }
         async function impE(i) {
             const f = i.files[0]; if (!f) return; await busy(async () => {
                 const wb = XLSX.read(await f.arrayBuffer()), r = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 }).slice(1); let n = 0; D.enrollments = D.enrollments || [];
@@ -676,7 +687,7 @@
         }
         V.crs = () => { $('#mn').innerHTML = box(head('รายวิชา', addB('cCrs()')) + dt('crs', [['code', 'รหัสวิชา'], ['name', 'ชื่อรายวิชา'], ['credits', 'หน่วยกิต']], D.courses || [], { act: r => ab(`cCrs(${r.id})`, `de('courses',${r.id})`) })); };
         V.teach = () => { $('#mn').innerHTML = box(head('มอบหมายอาจารย์ผู้สอนรายวิชา', addB('cTeach()')) + dt('teach', [['courseCode', 'รายวิชา', r => esc(eC(r) + ' ' + courseOf(eC(r)).name)], ['instructorId', 'อาจารย์', r => esc(uName(tI(r)))], ['semester', 'ภาค/ปี', r => esc(eSem(r) + '/' + eY(r))]], D.teaching || [], { act: r => delBtn('teaching', r.id) })); };
-        V.enr = () => { $('#mn').innerHTML = box(head('การลงทะเบียนเรียนของนักศึกษา', addB('cEnr()') + `<label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel (รหัสนักศึกษา, รหัสวิชา, ภาค, ปี)<input type="file" accept=".xlsx,.xls" hidden onchange="impE(this)"></label>`) + dt('enr', [['studentId', 'นักศึกษา', r => esc(eS(r) + ' ' + uName(eS(r)))], ['courseCode', 'รายวิชา', r => esc(eC(r) + ' ' + courseOf(eC(r)).name)], ['semester', 'ภาค/ปี', r => esc(eSem(r) + '/' + eY(r))]], D.enrollments || [], { act: r => delBtn('enrollments', r.id) })); };
+        V.enr = () => { $('#mn').innerHTML = box(head('การลงทะเบียนเรียนของนักศึกษา', badEnrBtn() + addB('cEnr()') + `<label class="btn cursor-pointer" style="background:#4A2C6D">นำเข้า Excel (รหัสนักศึกษา, รหัสวิชา, ภาค, ปี)<input type="file" accept=".xlsx,.xls" hidden onchange="impE(this)"></label>`) + dt('enr', [['studentId', 'นักศึกษา', r => esc(eS(r) + ' ' + uName(eS(r)))], ['courseCode', 'รายวิชา', r => esc(eC(r) + ' ' + courseOf(eC(r)).name)], ['semester', 'ภาค/ปี', r => esc(eSem(r) + '/' + eY(r))]], D.enrollments || [], { act: r => delBtn('enrollments', r.id) })); };
 
         // นักศึกษา: รายการที่ต้องประเมิน = ลงทะเบียน (enrollments) x วิชา (courses) x อาจารย์ผู้สอน (teaching)
         V.docs = () => {
