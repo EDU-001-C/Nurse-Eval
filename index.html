@@ -448,6 +448,7 @@
                         ${menus().map(m => `<div class="mi ${m[0] == p ? 'on' : ''}" onclick="go('${m[0]}');tg(1)">${ico(I[m[2]])}<span>${m[1]}</span></div>`).join('')}
                     </nav>
                     <div class="border-t pt-2 mt-2">
+                        <div class="mi text-[#4A2C6D]" onclick="editMyEmail()">${ico(I.usr)}<span>อีเมลของฉัน</span></div>
                         <div class="mi text-[#4A2C6D]" onclick="changeMyPassword()">${ico(I.lock)}<span>เปลี่ยนรหัสผ่าน</span></div>
                         <div class="mi text-[#EF5350]" onclick="logout()">${ico(I.out)}<span>ออกจากระบบ</span></div>
                     </div>
@@ -613,9 +614,25 @@
                 const scores = docs.map(d => +d.score || 0).filter(s => s > 0);
                 const avg = scores.length ? +(scores.reduce((x, y) => x + y, 0) / scores.length).toFixed(2) : '-';
                 if (ME.role === 'student') {
-                    const mine = docs.filter(d => d.uid == ME.u), myEnr = enr.filter(e => eS(e) === ME.u);
-                    $('#mn').innerHTML = cards([['รายวิชาที่ลงทะเบียน', myEnr.length, '#3BB489', '#76C58C'], ['แบบประเมินที่ส่งแล้ว', mine.length, '#0288D1', '#4FC3F7']])
-                        + box('<div class="text-gray-600">ไปที่เมนู <b>แบบประเมินของฉัน</b> เพื่อทำแบบประเมินรายวิชาและอาจารย์ผู้สอน</div>');
+                    const T = myTasks(), tot = T.reduce((s, r) => s + r.units, 0), n = T.reduce((s, r) => s + r.got, 0), left = tot - n, pc = tot ? Math.round(n / tot * 100) : 0;
+                    const pend = T.filter(r => !r.done), nCourse = new Set(T.map(r => r.code + '|' + r.sem + '|' + r.yr)).size;
+                    // กำหนดปิดรับประเมิน (แสดงเป็นข้อมูล ไม่บล็อกการส่ง)
+                    let ddl = ''; const ins = D.inst || {}, now = new Date(), cl = ins.closeTime ? new Date(ins.closeTime) : null, op = ins.openTime ? new Date(ins.openTime) : null, fmt = d => d.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' });
+                    if (op && !isNaN(op) && now < op) ddl = ['#eef6ff', '#1c5d99', '🗓️ ระบบจะเปิดรับประเมินวันที่ ' + fmt(op)];
+                    else if (cl && !isNaN(cl)) { const days = Math.ceil((cl - now) / 864e5); ddl = cl < now ? ['#f3f4f6', '#6b7280', '⌛ กำหนดปิดรับประเมินผ่านไปแล้ว (' + fmt(cl) + ')'] : days <= 3 ? ['#fff1e0', '#b45309', '⏰ ปิดรับประเมิน ' + fmt(cl) + ' (' + (days <= 1 ? 'เหลือไม่ถึง 1 วัน' : 'เหลืออีก ' + days + ' วัน') + ')'] : ['#e8f6f0', '#1e7a5b', '📅 ปิดรับประเมิน ' + fmt(cl) + ' (เหลืออีก ' + days + ' วัน)']; }
+                    const sel = r => r.type === 'ประเมินรายวิชา' ? (r.draft ? 'ทำต่อ' : 'ประเมิน') : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์');
+                    const stt = r => r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('แล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
+                    let h = cards([['รายวิชาที่ลงทะเบียน', nCourse, '#3BB489', '#76C58C'], ['ประเมินแล้ว', n + '/' + tot, '#0288D1', '#4FC3F7'], ['ยังไม่ได้ประเมิน', left, '#F57C00', '#FFB74D']]);
+                    if (ddl) h += `<div class="rounded-2xl p-4 mt-4 text-base font-medium" style="background:${ddl[0]};color:${ddl[1]}">${ddl[2]}</div>`;
+                    if (!myEmail()) h += `<div class="rounded-2xl p-4 mt-4 flex flex-wrap items-center justify-between gap-3" style="background:#fff7e6;color:#8a5a00"><span>⚠️ ยังไม่มีอีเมลของคุณในระบบ หากลืมรหัสผ่านจะรับรหัส OTP ไม่ได้</span><button class="btn !px-4 !py-1.5" style="background:#F57C00;white-space:nowrap" onclick="editMyEmail()">เพิ่มอีเมล</button></div>`;
+                    if (!T.length) h += box(`<div class="text-gray-700">ไม่พบรายวิชาที่ลงทะเบียนสำหรับรหัส <b>${esc(ME.u)}</b><br><span class="text-sm text-gray-500">กรุณาติดต่อผู้ดูแลระบบเพื่อตรวจสอบการลงทะเบียนของคุณ</span></div>`);
+                    else {
+                        h += box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`);
+                        h += pend.length
+                            ? box(`<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><div class="font-semibold">รายการที่ต้องประเมิน</div><button class="btn !px-3 !py-1" style="background:#6b7280" onclick="go('docs')">ดูทั้งหมด</button></div><div class="divide-y">${pend.slice(0, 6).map(r => `<div class="flex flex-wrap items-center justify-between gap-3 py-3"><div class="flex-1 min-w-[220px]"><div class="font-medium">${esc(r.code + ' ' + r.name)}</div><div class="text-sm text-gray-500">${esc(r.type)} · ภาค ${esc(r.sem + '/' + r.yr)}${r.type === 'ประเมินอาจารย์ผู้สอน' ? ' · ' + esc(r.tname) : ''}</div></div><div>${stt(r)}</div><button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${sel(r)}</button></div>`).join('')}</div>${pend.length > 6 ? `<div class="text-sm text-gray-500 mt-2">และอีก ${pend.length - 6} รายการ กด "ดูทั้งหมด"</div>` : ''}`)
+                            : box('<div class="text-center py-4 text-lg" style="color:#1e7a5b">🎉 ประเมินครบทุกรายการแล้ว ขอบคุณที่ร่วมประเมินหลักสูตร</div>');
+                    }
+                    $('#mn').innerHTML = h;
                     return;
                 }
                 const isAdmin = ME.role === 'admin';
@@ -844,21 +861,11 @@
 
         // นักศึกษา: รายการที่ต้องประเมิน = ลงทะเบียน (enrollments) x วิชา (courses) x อาจารย์ผู้สอน (teaching)
         V.docs = () => {
-            const T = [];
-            (D.enrollments || []).filter(e => eS(e) === ME.u).forEach(e => {
-                const code = eC(e), sem = eSem(e), yr = eY(e), nm = courseOf(code).name;
-                // ประเมินรายวิชา
-                T.push({ code, name: nm, sem, yr, type: 'ประเมินรายวิชา', teachers: [], tname: '-', units: 1, got: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) ? 1 : 0 });
-                // ประเมินอาจารย์ (หนึ่งแถวต่อวิชา เข้าไปเลือกประเมินทีละท่าน)
-                const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t)).filter((x, i, a) => x && a.indexOf(x) === i);
-                if (teachers.length) T.push({ code, name: nm, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.length + ' ท่าน', units: teachers.length, got: teachers.filter(tid => tDone(code, sem, yr, tid)).length });
-            });
-            T.forEach((r, i) => { r.i = i; r.done = r.got >= r.units; });
-            MYT = T;
+            const T = myTasks();
             const tot = T.reduce((s, r) => s + r.units, 0), n = T.reduce((s, r) => s + r.got, 0), pc = tot ? Math.round(n / tot * 100) : 0;
-            const st = r => r.done ? badge('ประเมินแล้ว', '#3BB489') : r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('ประเมินแล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : badge('ยังไม่ประเมิน', '#F57C00');
+            const st = r => r.done ? badge('ประเมินแล้ว', '#3BB489') : r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('ประเมินแล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
             $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div><div class="text-xs text-gray-500 mt-2">นับรายวิชา 1 รายการ และอาจารย์ผู้สอนรายท่าน ท่านละ 1 รายการ</div>`).replace('mt-4', '') +
-                box('<div class="tbl-docs">' + dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname)], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', st]], T, { act: r => r.done ? '' : `<button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${r.type === 'ประเมินรายวิชา' ? 'ประเมิน' : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์')}</button>` }) + '</div>') +
+                box('<div class="tbl-docs">' + dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname)], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', st]], T, { act: r => r.done ? '' : `<button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${r.type === 'ประเมินรายวิชา' ? (r.draft ? 'ทำต่อ' : 'ประเมิน') : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์')}</button>` }) + '</div>') +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         
@@ -937,18 +944,68 @@
         async function teacherList(code, sem, yr, teachers) {
             const c = courseOf(code);
             while (true) {
-                const rows = teachers.map(tid => ({ tid, done: tDone(code, sem, yr, tid) })), k = rows.filter(r => r.done).length;
+                const rows = teachers.map(tid => ({ tid, done: tDone(code, sem, yr, tid), draft: hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid) })), k = rows.filter(r => r.done).length;
                 if (k === rows.length) break;
                 let chosen = null;
                 await Swal.fire({
                     title: 'เลือกอาจารย์ที่จะประเมิน', width: 'min(780px, 96vw)', customClass: { popup: 'eval-popup' }, showConfirmButton: false, showCancelButton: true, cancelButtonText: 'ปิด',
-                    html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)} · ประเมินแล้ว <b>${k}/${rows.length}</b> ท่าน</div><div class="text-sm text-gray-500 mb-2">ประเมินทีละท่าน และให้คะแนนแต่ละท่านแยกกัน ส่งแล้วจะกลับมาที่รายชื่อนี้</div><div class="border rounded-xl">${rows.map(r => `<div class="flex items-center justify-between gap-3 px-4 py-3 border-b" style="${r.done ? 'background:#f9fafb' : ''}"><span class="text-lg" style="${r.done ? 'color:#9ca3af' : ''}">${esc(uName(r.tid))}</span>${r.done ? '<span class="font-semibold" style="color:#3BB489;white-space:nowrap">✓ ประเมินแล้ว</span>' : `<button type="button" class="btn pick-t" data-t="${esc(r.tid)}" style="background:#3BB489;white-space:nowrap">ประเมิน</button>`}</div>`).join('')}</div></div>`,
+                    html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)} · ประเมินแล้ว <b>${k}/${rows.length}</b> ท่าน</div><div class="text-sm text-gray-500 mb-2">ประเมินทีละท่าน และให้คะแนนแต่ละท่านแยกกัน ส่งแล้วจะกลับมาที่รายชื่อนี้</div><div class="border rounded-xl">${rows.map(r => `<div class="flex items-center justify-between gap-3 px-4 py-3 border-b" style="${r.done ? 'background:#f9fafb' : ''}"><span class="text-lg" style="${r.done ? 'color:#9ca3af' : ''}">${esc(uName(r.tid))}${r.draft && !r.done ? ' <small style="color:#F57C00">· มีร่างค้างอยู่</small>' : ''}</span>${r.done ? '<span class="font-semibold" style="color:#3BB489;white-space:nowrap">✓ ประเมินแล้ว</span>' : `<button type="button" class="btn pick-t" data-t="${esc(r.tid)}" style="background:#3BB489;white-space:nowrap">ประเมิน</button>`}</div>`).join('')}</div></div>`,
                     didOpen: () => document.querySelectorAll('.pick-t').forEach(b => b.onclick = () => { chosen = b.dataset.t; Swal.close(); })
                 });
                 if (!chosen) break;
                 await doEval(code, 'ประเมินอาจารย์ผู้สอน', [chosen], sem, yr);
             }
-            V.docs();
+            refreshMine();
+        }
+        // ===== บันทึกร่างอัตโนมัติ (เก็บในเครื่องของนักศึกษา แยกตามผู้ใช้/วิชา/ปี/อาจารย์) =====
+        const DK = (code, type, sem, yr, teacher) => 'nsys_draft|' + [ME.u, code, type, sem, yr, teacher || ''].join('|');
+        const draftLoad = k => { try { const d = JSON.parse(localStorage.getItem(k)); if (d && Date.now() - d.ts < 30 * 864e5) return d; if (d) localStorage.removeItem(k); } catch (e) { } return null; };
+        const draftSave = (k, ans, comment) => { try { if (!Object.keys(ans).length && !comment) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify({ ts: Date.now(), ans, comment })); } catch (e) { } };
+        const draftClear = k => { try { localStorage.removeItem(k); } catch (e) { } };
+        const hasDraft = (code, type, sem, yr, teacher) => !!draftLoad(DK(code, type, sem, yr, teacher));
+        // รายการที่นักศึกษาต้องประเมิน (ใช้ร่วมกันระหว่างแดชบอร์ดและหน้า "แบบประเมินของฉัน")
+        const myTasks = () => {
+            const T = [];
+            (D.enrollments || []).filter(e => eS(e) === ME.u).forEach(e => {
+                const code = eC(e), sem = eSem(e), yr = eY(e), nm = courseOf(code).name;
+                T.push({ code, name: nm, sem, yr, type: 'ประเมินรายวิชา', teachers: [], tname: '-', units: 1, got: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) ? 1 : 0, draft: hasDraft(code, 'ประเมินรายวิชา', sem, yr, '') });
+                const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t)).filter((x, i, a) => x && a.indexOf(x) === i);
+                if (teachers.length) T.push({ code, name: nm, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.length + ' ท่าน', units: teachers.length, got: teachers.filter(tid => tDone(code, sem, yr, tid)).length, draft: teachers.some(tid => !tDone(code, sem, yr, tid) && hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid)) });
+            });
+            T.forEach((r, i) => { r.i = i; r.done = r.got >= r.units; });
+            MYT = T; return T;
+        };
+        const refreshMine = () => V[CUR === 'dash' ? 'dash' : 'docs']();
+        // ===== อีเมลของฉัน (ใช้รับ OTP เมื่อลืมรหัสผ่าน) =====
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const myEmail = () => String(((D.users || []).concat(D.admins || []).find(x => String(x.u) === String(ME.u)) || ME).email || ME.email || '').trim();
+        async function editMyEmail() {
+            const cur = myEmail();
+            const r = await Swal.fire({
+                title: 'อีเมลของฉัน', width: 'min(520px, 96vw)', showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489', focusConfirm: false,
+                html: `<div class="text-left text-sm text-gray-600 mb-2">ใช้รับรหัส OTP เมื่อลืมรหัสผ่าน<br>${cur ? 'อีเมลปัจจุบัน: <b>' + esc(cur) + '</b>' : '<b style="color:#F57C00">ยังไม่ได้ลงทะเบียนอีเมล</b>'}</div><input id="em_new" type="email" class="swal2-input" placeholder="อีเมลใหม่" value="${esc(cur)}"><input id="em_pw" type="password" class="swal2-input" placeholder="รหัสผ่านปัจจุบัน (เพื่อยืนยันตัวตน)">`,
+                preConfirm: () => {
+                    const em = document.getElementById('em_new').value.trim().toLowerCase(), pw = document.getElementById('em_pw').value;
+                    if (!EMAIL_RE.test(em)) { Swal.showValidationMessage('รูปแบบอีเมลไม่ถูกต้อง'); return false; }
+                    if (pw !== ME.p) { Swal.showValidationMessage('รหัสผ่านไม่ถูกต้อง'); return false; }
+                    if ((D.users || []).concat(D.admins || []).some(x => String(x.u) !== String(ME.u) && String(x.email || '').trim().toLowerCase() === em)) { Swal.showValidationMessage('อีเมลนี้ถูกใช้งานโดยบัญชีอื่นแล้ว'); return false; }
+                    return em;
+                }
+            });
+            if (!r.isConfirmed || !r.value) return;
+            const em = r.value; let bad = '';
+            await busy(async () => {
+                if (ME.role === 'admin') { const a = D.admins.find(x => String(x.u) === String(ME.u)); if (a) a.email = em; ME.email = em; save('admins'); }
+                else {
+                    const rs = await post({ action: 'setEmail', u: ME.u, pw: ME.p, email: em });
+                    if (!rs.ok) { bad = (rs.error || 'ไม่สำเร็จ') + ' (หากเพิ่งอัปเดตระบบ ให้ตรวจว่า Code.gs เป็นเวอร์ชันล่าสุดและ Deploy แล้ว)'; return; }
+                    const u = D.users.find(x => String(x.u) === String(ME.u)); if (u) u.email = em; ME.email = em; save('users');
+                }
+                try { sessionStorage.setItem('nsys_me', JSON.stringify(ME)); } catch (e) { }
+                log('บันทึกอีเมลของตนเอง');
+            });
+            if (bad) return err(bad);
+            ok('บันทึกอีเมลเรียบร้อยแล้ว'); if (CUR === 'dash') V.dash();
         }
         let MYT = [];
         const doEvalI = i => { const r = MYT[i]; if (!r) return; return r.type === 'ประเมินรายวิชา' ? doEval(r.code, r.type, [], r.sem, r.yr) : teacherList(r.code, r.sem, r.yr, r.teachers); };
@@ -972,16 +1029,21 @@
             const keys = isC ? [...ORDER.filter(k => byT[k]), ...Object.keys(byT).filter(k => !ORDER.includes(k))] : Object.keys(byT);
             const pages = keys.map(k => ({ name: isC ? k : 'การสอนของอาจารย์ผู้สอน', qs: byT[k] }));
 
-            const ans = {}; let comment = '';
-            const collect = pg => { pg.qs.forEach(q => { const el = document.querySelector(`input[name="q_${q.id}"]:checked`); if (el) ans[q.id] = +el.value; else delete ans[q.id]; }); const cm = $('#dcomment'); if (cm) comment = cm.value; };
+            const dk = DK(code, type, sem, yr, isC ? '' : (selectedTeachers[0] || ''));
+            const ans = {}; let comment = '', restored = false;
+            const dr = draftLoad(dk);
+            if (dr) { qs.forEach(q => { const s = dr.ans && dr.ans[q.id]; if (s && s.v && s.t === qText(q)) ans[q.id] = s.v; }); comment = dr.comment || ''; restored = !!Object.keys(ans).length || !!comment; }
+            const persist = () => draftSave(dk, Object.fromEntries(Object.entries(ans).map(([id, v]) => [id, { v, t: qText(qs.find(q => q.id == id) || {}) }])), comment);
+            const collect = pg => { pg.qs.forEach(q => { const el = document.querySelector(`input[name="q_${q.id}"]:checked`); if (el) ans[q.id] = +el.value; else delete ans[q.id]; }); const cm = $('#dcomment'); if (cm) comment = cm.value; persist(); };
             const pageHtml = (pg, i, last) => `<div class="text-left">
                 <div class="p-4 rounded-xl mb-4 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br><span class="text-lg font-semibold" style="color:#4A2C6D">👩‍🏫 อาจารย์ผู้ถูกประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}</span>` : ''}</div>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-1"><h3 class="text-xl font-bold" style="color:#3BB489">${esc(pg.name)}</h3><span class="text-sm text-gray-500">หน้า ${i + 1}/${pages.length}</span></div>
-                <div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด</div>
+                ${note ? '<div class="p-3 rounded-lg mb-2 text-sm" style="background:#fff7e6;color:#8a5a00">💾 กู้คืนคำตอบที่บันทึกร่างไว้ให้แล้ว ตรวจสอบและทำต่อได้เลย</div>' : ''}<div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด · ระบบบันทึกร่างให้อัตโนมัติ ปิดหน้าต่างแล้วกลับมาทำต่อได้</div>
                 <div class="border rounded-xl">${pg.qs.map(q => `<div class="eval-row"><div class="eval-q">${esc(qText(q))}</div><div class="eval-rt">${[5, 4, 3, 2, 1].map(v => `<label class="rt"><input type="radio" name="q_${q.id}" value="${v}" ${ans[q.id] == v ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div></div>`).join('')}</div>
                 ${last ? `<label class="text-base font-semibold mt-4 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp mt-1" style="font-size:1.05rem" rows="4">${esc(comment)}</textarea>` : ''}</div>`;
 
-            let pi = 0;
+            let pi = pages.findIndex(pg => pg.qs.some(q => !ans[q.id])); if (pi < 0) pi = pages.length - 1;
+            let note = restored;
             while (pi < pages.length) {
                 const pg = pages[pi], last = pi === pages.length - 1;
                 const r = await Swal.fire({
@@ -991,10 +1053,11 @@
                     confirmButtonText: last ? 'ส่งแบบประเมิน' : 'ถัดไป ›', denyButtonText: '‹ ย้อนกลับ', cancelButtonText: 'ยกเลิก',
                     confirmButtonColor: '#3BB489', denyButtonColor: '#6b7280',
                     html: pageHtml(pg, pi, last),
+                    didOpen: () => { document.querySelectorAll('.eval-row input').forEach(x => x.addEventListener('change', () => collect(pg))); const cm = $('#dcomment'); if (cm) cm.addEventListener('input', () => collect(pg)); },
                     preConfirm: () => { collect(pg); const miss = pg.qs.filter(q => !ans[q.id]); if (miss.length) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อในหน้านี้ (เหลืออีก ' + miss.length + ' ข้อ)'); return false; } return true; },
                     preDeny: () => { collect(pg); return true; }
                 });
-                if (r.isConfirmed) pi++; else if (r.isDenied) pi--; else return;
+                note = false; if (r.isConfirmed) pi++; else if (r.isDenied) pi--; else return;
             }
 
             const a = qs.map(q => ({ q: q.id, v: ans[q.id], t: qText(q) })), score = +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2);
@@ -1006,10 +1069,10 @@
                 let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
                 if (!res.ok) failed.push((tn || code) + ': ' + (res.error || 'ไม่สำเร็จ')); else sent.push(doc);
             }
-            D.docs.push(...sent); save();
+            D.docs.push(...sent); if (sent.length) draftClear(dk); save();
             if (sent.length) log('ส่งแบบประเมิน: ' + type + ' ' + code + ' (' + sent.length + ' รายการ)');
-            if (failed.length) { await err('ส่งสำเร็จ ' + sent.length + ' รายการ แต่ล้มเหลว: ' + failed.join(', ')); return V.docs(); }
-            ok('ส่งแบบประเมินเรียบร้อยแล้ว'); V.docs();
+            if (failed.length) { await err('ส่งสำเร็จ ' + sent.length + ' รายการ แต่ล้มเหลว: ' + failed.join(', ')); return refreshMine(); }
+            ok('ส่งแบบประเมินเรียบร้อยแล้ว'); refreshMine();
         }
 
         // แอดมิน: ติดตามผลการประเมิน + ตรวจความสัมพันธ์ของข้อมูลระหว่างชีต
