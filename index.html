@@ -45,6 +45,9 @@
         .eval-popup .swal2-html-container { max-height: 68vh; overflow-y: auto; text-align: left; margin: 1em 1.2em .3em; }
         .eval-row { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; justify-content: space-between; padding: 1rem .5rem; border-bottom: 1px solid #e5e7eb; }
         .eval-row:last-child { border-bottom: 0; }
+        .rt.rt-na span { width: auto; padding: 0 16px; font-size: .95rem; font-weight: 500; margin-left: .6rem; color: #6b7280; border-style: dashed; white-space: nowrap; }
+        .rt.rt-na:hover span { border-color: #9ca3af; background: #f3f4f6; }
+        .rt.rt-na input:checked + span { background: #6b7280; border-color: #6b7280; color: #fff; border-style: solid; box-shadow: 0 4px 10px #6b728055; }
         .eval-q { flex: 1 1 420px; font-size: 1.1rem; line-height: 1.6; color: #1f2937; }
         .eval-rt { display: flex; gap: .5rem; }
         :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; }
@@ -423,7 +426,7 @@
             ['usr', 'จัดการข้อมูลผู้ใช้งาน', 'usr'], ['qs', 'จัดการคำถามประเมิน', 'q'], ['report', 'รายงานผลประเมิน', 'rep'], ['crs', 'จัดการรายวิชา', 'doc'], ['teach', 'มอบหมายอาจารย์ผู้สอน', 'usr'], ['enr', 'ลงทะเบียนนักศึกษา', 'usr'], ['track', 'ติดตามการประเมิน', 'rep'],
             ['pdoc', 'เอกสารส่วนตัว', 'doc'], ['log', 'ประวัติการใช้งาน (LOG)', 'log'], ['gs', 'เชื่อมต่อ Google Sheet', 'inst']
         ] : ME.role == 'student' ? [
-            ['dash', 'แดชบอร์ด', 'dash'], ['docs', 'แบบประเมินของฉัน', 'doc']
+            ['dash', 'แดชบอร์ด', 'dash'], ['docs', 'แบบประเมินของฉัน', 'doc'], ['hist', 'ประวัติการประเมินของฉัน', 'log']
         ] : [
             ['dash', 'แดชบอร์ด', 'dash'], ['report', 'รายงานผลประเมินของฉัน', 'rep']
         ];
@@ -627,7 +630,7 @@
                     if (!myEmail()) h += `<div class="rounded-2xl p-4 mt-4 flex flex-wrap items-center justify-between gap-3" style="background:#fff7e6;color:#8a5a00"><span>⚠️ ยังไม่มีอีเมลของคุณในระบบ หากลืมรหัสผ่านจะรับรหัส OTP ไม่ได้</span><button class="btn !px-4 !py-1.5" style="background:#F57C00;white-space:nowrap" onclick="editMyEmail()">เพิ่มอีเมล</button></div>`;
                     if (!T.length) h += box(`<div class="text-gray-700">ไม่พบรายวิชาที่ลงทะเบียนสำหรับรหัส <b>${esc(ME.u)}</b><br><span class="text-sm text-gray-500">กรุณาติดต่อผู้ดูแลระบบเพื่อตรวจสอบการลงทะเบียนของคุณ</span></div>`);
                     else {
-                        h += box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>`);
+                        h += box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>${n ? `<div class="mt-3"><button class="btn !px-3 !py-1" style="background:#0288D1" onclick="go('hist')">ดูประวัติการประเมินที่ส่งแล้ว</button></div>` : ''}`);
                         h += pend.length
                             ? box(`<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><div class="font-semibold">รายการที่ต้องประเมิน</div><button class="btn !px-3 !py-1" style="background:#6b7280" onclick="go('docs')">ดูทั้งหมด</button></div><div class="divide-y">${pend.slice(0, 6).map(r => `<div class="flex flex-wrap items-center justify-between gap-3 py-3"><div class="flex-1 min-w-[220px]"><div class="font-medium">${esc(r.code + ' ' + r.name)}</div><div class="text-sm text-gray-500">${esc(r.type)} · ภาค ${esc(r.sem + '/' + r.yr)}${r.type === 'ประเมินอาจารย์ผู้สอน' ? ' · ' + esc(r.tname) : ''}</div></div><div>${stt(r)}</div><button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${sel(r)}</button></div>`).join('')}</div>${pend.length > 6 ? `<div class="text-sm text-gray-500 mt-2">และอีก ${pend.length - 6} รายการ กด "ดูทั้งหมด"</div>` : ''}`)
                             : box('<div class="text-center py-4 text-lg" style="color:#1e7a5b">🎉 ประเมินครบทุกรายการแล้ว ขอบคุณที่ร่วมประเมินหลักสูตร</div>');
@@ -693,8 +696,9 @@
                 const enr = (D.enrollments || []).filter(e => (!f.c || eC(e) == pick(f.c)) && (!f.s || eSem(e) == f.s) && (!f.y || eY(e) == f.y) && (!T || myCodes().has(eC(e))));
                 const nEnr = new Set(enr.map(eS)).size, rr = nEnr ? Math.round(new Set(rows.map(d => String(d.uid))).size / nEnr * 100) + '%' : '-';
                 const iq = {}, iqt = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => { const kk = a.t ? 't:' + a.t : a.q; (iq[kk] = iq[kk] || []).push(a.v); if (a.t) iqt[kk] = a.t; }));
-                const itemRows = Object.entries(iq).map(([id, a]) => ({ k: iqt[id] || qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: a.length, avg: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(2) }));
-                const itemBox = itemRows.length ? box('<div class="font-semibold mb-2">ผลประเมินรายข้อคำถาม</div>' + dt('repi', [['k', 'คำถาม'], ['n', 'จำนวน'], ['avg', 'เฉลี่ย'], ['l', 'ระดับ', r => lv(r.avg)]], itemRows, { n: 100 })) : '';
+                const rated = v => v.filter(x => x > 0);
+                const itemRows = Object.entries(iq).map(([id, a]) => ({ k: iqt[id] || qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: rated(a).length, na: a.length - rated(a).length, avg: rated(a).length ? +(rated(a).reduce((x, y) => x + y, 0) / rated(a).length).toFixed(2) : '-' }));
+                const itemBox = itemRows.length ? box('<div class="font-semibold mb-2">ผลประเมินรายข้อคำถาม</div>' + dt('repi', [['k', 'คำถาม'], ['n', 'จำนวน'], ['na', 'ประเมินไม่ได้'], ['avg', 'เฉลี่ย'], ['l', 'ระดับ', r => r.n ? lv(r.avg) : '-']], itemRows, { n: 100 })) : '';
                 const tot = rows.length ? +(rows.reduce((x, d) => x + d.score, 0) / rows.length).toFixed(2) : 0;
                 const op = (a, v) => a.map(x => Array.isArray(x) ? `<option value="${x[0]}" ${x[0] == v ? 'selected' : ''}>${x[1]}</option>` : `<option ${x == v ? 'selected' : ''}>${x}</option>`).join('');
                 const sl = (k, l, o, all1 = 1) => `<div class="no-print"><label class="text-xs text-gray-500">${l}</label><select class="inp" onchange="S.rf.${k}=this.value;S.rep&&(S.rep.p=1);V.report()">${all1 ? '<option value="">ทั้งหมด</option>' : ''}${op(o, f[k])}</select></div>`;
@@ -1007,6 +1011,29 @@
             if (bad) return err(bad);
             ok('บันทึกอีเมลเรียบร้อยแล้ว'); if (CUR === 'dash') V.dash();
         }
+        // ===== ประวัติการประเมินของฉัน (อ่านอย่างเดียว) =====
+        let HIST = [];
+        const sentAt = d => { const id = +d.id; return (d.date || '-') + (id > 1e12 ? ' ' + new Date(id).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.' : ''); };
+        V.hist = () => {
+            HIST = (D.docs || []).filter(d => String(d.uid) === String(ME.u)).sort((a, b) => (+b.id || 0) - (+a.id || 0));
+            HIST.forEach((d, i) => d.__i = i);
+            const cn = d => { const c = docCode(d); return c + ' ' + (courseOf(c).name || ''); };
+            $('#mn').innerHTML = box(`<div class="font-semibold">ประวัติการประเมินของฉัน</div><div class="text-sm text-gray-500 mt-1">ส่งแล้ว <b>${HIST.length}</b> รายการ · ใช้ตรวจสอบว่าระบบบันทึกแบบประเมินของคุณแล้ว (ดูได้อย่างเดียว ไม่สามารถแก้ไขหรือส่งซ้ำได้)</div>`)
+                + (HIST.length
+                    ? box('<div class="tbl-docs">' + dt('hist', [['date', 'ส่งเมื่อ', r => esc(sentAt(r))], ['code', 'รายวิชา', r => esc(cn(r))], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้ถูกประเมิน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.year)], ['score', 'คะแนนเฉลี่ย', r => isFinite(r.score) && r.score > 0 ? Number(r.score).toFixed(2) : '-']], HIST, { act: r => `<button class="btn !px-4 !py-1.5" style="background:#0288D1;white-space:nowrap" onclick="histView(${r.__i})">ดูคำตอบ</button>` }) + '</div>')
+                    : box('<p class="text-center text-gray-500 py-4">ยังไม่มีแบบประเมินที่ส่ง · ไปที่เมนู “แบบประเมินของฉัน” เพื่อเริ่มประเมิน</p>'));
+        };
+        function histView(i) {
+            const d = HIST[i]; if (!d) return;
+            const ans = Array.isArray(d.answers) ? d.answers : [], c = docCode(d);
+            const lab = v => v > 0 ? `<b style="color:#1e7a5b;font-size:1.15rem">${v}</b>` : '<span style="color:#6b7280">ประเมินไม่ได้</span>';
+            Swal.fire({
+                title: 'รายละเอียดที่ส่งแล้ว', width: 'min(900px, 96vw)', customClass: { popup: 'eval-popup' }, confirmButtonText: 'ปิด', confirmButtonColor: '#3BB489',
+                html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(c + ' ' + (courseOf(c).name || ''))}</b><br>${esc(d.type)}${d.tname ? ' · ' + esc(d.tname) : ''}<br>ภาค ${esc(d.sem + '/' + d.year)} · ส่งเมื่อ ${esc(sentAt(d))}${isFinite(d.score) && d.score > 0 ? ' · คะแนนเฉลี่ย <b>' + Number(d.score).toFixed(2) + '</b>' : ''}</div>`
+                    + (ans.length ? `<div class="border rounded-xl">${ans.map(a => `<div class="flex items-center justify-between gap-4 px-4 py-2.5 border-b"><span class="text-base">${esc(a.t || qText((D.qs || []).find(q => q.id == a.q) || {}) || 'ข้อ ' + a.q)}</span>${lab(a.v)}</div>`).join('')}</div>` : '<div class="text-gray-500">ไม่มีรายละเอียดรายข้อ</div>')
+                    + (d.comment ? `<div class="mt-3"><b>ข้อเสนอแนะ</b><div class="p-3 rounded-lg mt-1 whitespace-pre-wrap" style="background:#f9fafb">${esc(d.comment)}</div></div>` : '') + '</div>'
+            });
+        }
         let MYT = [];
         const doEvalI = i => { const r = MYT[i]; if (!r) return; return r.type === 'ประเมินรายวิชา' ? doEval(r.code, r.type, [], r.sem, r.yr) : teacherList(r.code, r.sem, r.yr, r.teachers); };
         async function doEval(code, type, teachers, sem, yr) {
@@ -1032,17 +1059,17 @@
             const dk = DK(code, type, sem, yr, isC ? '' : (selectedTeachers[0] || ''));
             const ans = {}; let comment = '', restored = false;
             const dr = draftLoad(dk);
-            if (dr) { qs.forEach(q => { const s = dr.ans && dr.ans[q.id]; if (s && s.v && s.t === qText(q)) ans[q.id] = s.v; }); comment = dr.comment || ''; restored = !!Object.keys(ans).length || !!comment; }
+            if (dr) { qs.forEach(q => { const s = dr.ans && dr.ans[q.id]; if (s && s.v != null && s.t === qText(q)) ans[q.id] = +s.v; }); comment = dr.comment || ''; restored = !!Object.keys(ans).length || !!comment; }
             const persist = () => draftSave(dk, Object.fromEntries(Object.entries(ans).map(([id, v]) => [id, { v, t: qText(qs.find(q => q.id == id) || {}) }])), comment);
             const collect = pg => { pg.qs.forEach(q => { const el = document.querySelector(`input[name="q_${q.id}"]:checked`); if (el) ans[q.id] = +el.value; else delete ans[q.id]; }); const cm = $('#dcomment'); if (cm) comment = cm.value; persist(); };
             const pageHtml = (pg, i, last) => `<div class="text-left">
                 <div class="p-4 rounded-xl mb-4 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)}${selectedTeachers.length ? `<br><span class="text-lg font-semibold" style="color:#4A2C6D">👩‍🏫 อาจารย์ผู้ถูกประเมิน: ${esc(selectedTeachers.map(t => uName(t)).join(', '))}</span>` : ''}</div>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-1"><h3 class="text-xl font-bold" style="color:#3BB489">${esc(pg.name)}</h3><span class="text-sm text-gray-500">หน้า ${i + 1}/${pages.length}</span></div>
-                ${note ? '<div class="p-3 rounded-lg mb-2 text-sm" style="background:#fff7e6;color:#8a5a00">💾 กู้คืนคำตอบที่บันทึกร่างไว้ให้แล้ว ตรวจสอบและทำต่อได้เลย</div>' : ''}<div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด · ระบบบันทึกร่างให้อัตโนมัติ ปิดหน้าต่างแล้วกลับมาทำต่อได้</div>
-                <div class="border rounded-xl">${pg.qs.map(q => `<div class="eval-row"><div class="eval-q">${esc(qText(q))}</div><div class="eval-rt">${[5, 4, 3, 2, 1].map(v => `<label class="rt"><input type="radio" name="q_${q.id}" value="${v}" ${ans[q.id] == v ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div></div>`).join('')}</div>
+                ${note ? '<div class="p-3 rounded-lg mb-2 text-sm" style="background:#fff7e6;color:#8a5a00">💾 กู้คืนคำตอบที่บันทึกร่างไว้ให้แล้ว ตรวจสอบและทำต่อได้เลย</div>' : ''}<div class="text-sm text-gray-500 mb-1">เลือกระดับคะแนน 5 = มากที่สุด ... 1 = น้อยที่สุด · ข้อที่ไม่เกี่ยวข้องหรือไม่มีข้อมูลพอ เลือก <b>“ประเมินไม่ได้”</b> (ไม่นำไปคิดคะแนนเฉลี่ย) · ระบบบันทึกร่างให้อัตโนมัติ</div>
+                <div class="border rounded-xl">${pg.qs.map(q => `<div class="eval-row"><div class="eval-q">${esc(qText(q))}</div><div class="eval-rt">${[5, 4, 3, 2, 1].map(v => `<label class="rt"><input type="radio" name="q_${q.id}" value="${v}" ${ans[q.id] === v ? 'checked' : ''}><span>${v}</span></label>`).join('')}<label class="rt rt-na" title="ข้อนี้ไม่เกี่ยวข้อง/ไม่มีข้อมูลพอจะประเมิน ระบบจะไม่นำไปคิดคะแนน"><input type="radio" name="q_${q.id}" value="0" ${ans[q.id] === 0 ? 'checked' : ''}><span>ประเมินไม่ได้</span></label></div></div>`).join('')}</div>
                 ${last ? `<label class="text-base font-semibold mt-4 block">✍️ ข้อเสนอแนะเพิ่มเติม</label><textarea id="dcomment" class="inp mt-1" style="font-size:1.05rem" rows="4">${esc(comment)}</textarea>` : ''}</div>`;
 
-            let pi = pages.findIndex(pg => pg.qs.some(q => !ans[q.id])); if (pi < 0) pi = pages.length - 1;
+            let pi = pages.findIndex(pg => pg.qs.some(q => ans[q.id] == null)); if (pi < 0) pi = pages.length - 1;
             let note = restored;
             while (pi < pages.length) {
                 const pg = pages[pi], last = pi === pages.length - 1;
@@ -1054,13 +1081,13 @@
                     confirmButtonColor: '#3BB489', denyButtonColor: '#6b7280',
                     html: pageHtml(pg, pi, last),
                     didOpen: () => { document.querySelectorAll('.eval-row input').forEach(x => x.addEventListener('change', () => collect(pg))); const cm = $('#dcomment'); if (cm) cm.addEventListener('input', () => collect(pg)); },
-                    preConfirm: () => { collect(pg); const miss = pg.qs.filter(q => !ans[q.id]); if (miss.length) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อในหน้านี้ (เหลืออีก ' + miss.length + ' ข้อ)'); return false; } return true; },
+                    preConfirm: () => { collect(pg); const miss = pg.qs.filter(q => ans[q.id] == null); if (miss.length) { Swal.showValidationMessage('กรุณาตอบให้ครบทุกข้อในหน้านี้ (เหลืออีก ' + miss.length + ' ข้อ) — ข้อที่ไม่เกี่ยวข้องให้เลือก “ประเมินไม่ได้”'); return false; } if (last && !qs.some(q => ans[q.id] > 0)) { Swal.showValidationMessage('ต้องให้คะแนนอย่างน้อย 1 ข้อ (เลือก “ประเมินไม่ได้” ได้เฉพาะข้อที่ไม่เกี่ยวข้อง)'); return false; } return true; },
                     preDeny: () => { collect(pg); return true; }
                 });
                 note = false; if (r.isConfirmed) pi++; else if (r.isDenied) pi--; else return;
             }
 
-            const a = qs.map(q => ({ q: q.id, v: ans[q.id], t: qText(q) })), score = +(a.reduce((s, x) => s + x.v, 0) / a.length).toFixed(2);
+            const a = qs.map(q => ({ q: q.id, v: ans[q.id], t: qText(q) })), rated = a.filter(x => x.v > 0), score = +(rated.reduce((s, x) => s + x.v, 0) / rated.length).toFixed(2);
             // รายวิชา: ส่ง 1 ชุด (ไม่ระบุอาจารย์) | ประเมินอาจารย์: ส่งแยกต่ออาจารย์แต่ละคน เพื่อให้ระบบตรวจไม่ซ้ำ
             const targets = isC ? [''] : selectedTeachers, sent = [], failed = [];
             for (const teacher of targets) {
