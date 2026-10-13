@@ -451,7 +451,6 @@
                         ${menus().map(m => `<div class="mi ${m[0] == p ? 'on' : ''}" onclick="go('${m[0]}');tg(1)">${ico(I[m[2]])}<span>${m[1]}</span></div>`).join('')}
                     </nav>
                     <div class="border-t pt-2 mt-2">
-                        <div class="mi text-[#4A2C6D]" onclick="editMyEmail()">${ico(I.usr)}<span>อีเมลของฉัน</span></div>
                         <div class="mi text-[#4A2C6D]" onclick="changeMyPassword()">${ico(I.lock)}<span>เปลี่ยนรหัสผ่าน</span></div>
                         <div class="mi text-[#EF5350]" onclick="logout()">${ico(I.out)}<span>ออกจากระบบ</span></div>
                     </div>
@@ -627,7 +626,6 @@
                     const stt = r => r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('แล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
                     let h = cards([['รายวิชาที่ลงทะเบียน', nCourse, '#3BB489', '#76C58C'], ['ประเมินแล้ว', n + '/' + tot, '#0288D1', '#4FC3F7'], ['ยังไม่ได้ประเมิน', left, '#F57C00', '#FFB74D']]);
                     if (ddl) h += `<div class="rounded-2xl p-4 mt-4 text-base font-medium" style="background:${ddl[0]};color:${ddl[1]}">${ddl[2]}</div>`;
-                    if (!myEmail()) h += `<div class="rounded-2xl p-4 mt-4 flex flex-wrap items-center justify-between gap-3" style="background:#fff7e6;color:#8a5a00"><span>⚠️ ยังไม่มีอีเมลของคุณในระบบ หากลืมรหัสผ่านจะรับรหัส OTP ไม่ได้</span><button class="btn !px-4 !py-1.5" style="background:#F57C00;white-space:nowrap" onclick="editMyEmail()">เพิ่มอีเมล</button></div>`;
                     if (!T.length) h += box(`<div class="text-gray-700">ไม่พบรายวิชาที่ลงทะเบียนสำหรับรหัส <b>${esc(ME.u)}</b><br><span class="text-sm text-gray-500">กรุณาติดต่อผู้ดูแลระบบเพื่อตรวจสอบการลงทะเบียนของคุณ</span></div>`);
                     else {
                         h += box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div>${n ? `<div class="mt-3"><button class="btn !px-3 !py-1" style="background:#0288D1" onclick="go('hist')">ดูประวัติการประเมินที่ส่งแล้ว</button></div>` : ''}`);
@@ -980,37 +978,6 @@
             MYT = T; return T;
         };
         const refreshMine = () => V[CUR === 'dash' ? 'dash' : 'docs']();
-        // ===== อีเมลของฉัน (ใช้รับ OTP เมื่อลืมรหัสผ่าน) =====
-        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const myEmail = () => String(((D.users || []).concat(D.admins || []).find(x => String(x.u) === String(ME.u)) || ME).email || ME.email || '').trim();
-        async function editMyEmail() {
-            const cur = myEmail();
-            const r = await Swal.fire({
-                title: 'อีเมลของฉัน', width: 'min(520px, 96vw)', showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3BB489', focusConfirm: false,
-                html: `<div class="text-left text-sm text-gray-600 mb-2">ใช้รับรหัส OTP เมื่อลืมรหัสผ่าน<br>${cur ? 'อีเมลปัจจุบัน: <b>' + esc(cur) + '</b>' : '<b style="color:#F57C00">ยังไม่ได้ลงทะเบียนอีเมล</b>'}</div><input id="em_new" type="email" class="swal2-input" placeholder="อีเมลใหม่" value="${esc(cur)}"><input id="em_pw" type="password" class="swal2-input" placeholder="รหัสผ่านปัจจุบัน (เพื่อยืนยันตัวตน)">`,
-                preConfirm: () => {
-                    const em = document.getElementById('em_new').value.trim().toLowerCase(), pw = document.getElementById('em_pw').value;
-                    if (!EMAIL_RE.test(em)) { Swal.showValidationMessage('รูปแบบอีเมลไม่ถูกต้อง'); return false; }
-                    if (pw !== ME.p) { Swal.showValidationMessage('รหัสผ่านไม่ถูกต้อง'); return false; }
-                    if ((D.users || []).concat(D.admins || []).some(x => String(x.u) !== String(ME.u) && String(x.email || '').trim().toLowerCase() === em)) { Swal.showValidationMessage('อีเมลนี้ถูกใช้งานโดยบัญชีอื่นแล้ว'); return false; }
-                    return em;
-                }
-            });
-            if (!r.isConfirmed || !r.value) return;
-            const em = r.value; let bad = '';
-            await busy(async () => {
-                if (ME.role === 'admin') { const a = D.admins.find(x => String(x.u) === String(ME.u)); if (a) a.email = em; ME.email = em; save('admins'); }
-                else {
-                    const rs = await post({ action: 'setEmail', u: ME.u, pw: ME.p, email: em });
-                    if (!rs.ok) { bad = (rs.error || 'ไม่สำเร็จ') + ' (หากเพิ่งอัปเดตระบบ ให้ตรวจว่า Code.gs เป็นเวอร์ชันล่าสุดและ Deploy แล้ว)'; return; }
-                    const u = D.users.find(x => String(x.u) === String(ME.u)); if (u) u.email = em; ME.email = em; save('users');
-                }
-                try { sessionStorage.setItem('nsys_me', JSON.stringify(ME)); } catch (e) { }
-                log('บันทึกอีเมลของตนเอง');
-            });
-            if (bad) return err(bad);
-            ok('บันทึกอีเมลเรียบร้อยแล้ว'); if (CUR === 'dash') V.dash();
-        }
         // ===== ประวัติการประเมินของฉัน (อ่านอย่างเดียว) =====
         let HIST = [];
         const sentAt = d => { const id = +d.id; return (d.date || '-') + (id > 1e12 ? ' ' + new Date(id).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.' : ''); };
