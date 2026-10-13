@@ -177,6 +177,7 @@
         let D; 
         try { D = JSON.parse(localStorage.getItem(KEY)); if (!D || typeof D !== 'object' || !Array.isArray(D.users)) D = seed; } catch (e) { D = seed; }
         if (!D.inst) D.inst = seed.inst;
+        normUsers();
         fixLogo();
         
         let NOSYNC = 0, gt, GSM = 'ยังไม่ได้เชื่อมต่อ';
@@ -203,6 +204,14 @@
             if (now) return go(); gt = setTimeout(go, 1500); return Promise.resolve();
         }
         
+        /* แปลงคอลัมน์ภาษาไทยในชีต users (หลักสูตร / สาขาวิชา) ให้เป็นคีย์ program / major ที่แอปใช้ */
+        function normUsers() {
+            (D.users || []).forEach(u => {
+                if (u['หลักสูตร'] !== undefined) { if (!u.program) u.program = String(u['หลักสูตร'] || ''); delete u['หลักสูตร']; }
+                if (u['สาขาวิชา'] !== undefined) { if (!u.major) u.major = String(u['สาขาวิชา'] || ''); delete u['สาขาวิชา']; }
+            });
+        }
+        
         async function gpull() {
             const c = cfg(); if (!c.url || c.url.includes('วาง_WEB_APP_URL_')) return false;
             const j = await fetch(gurl(c)).then(r => r.json()); if (!j.ok) throw Error(j.error); 
@@ -210,6 +219,7 @@
             const N = a => (a||[]).map(x => ({ ...x, id: +x.id })); NOSYNC = 1;
             try {
                 D.admins = N(d.admins); D.users = N(d.users); D.qs = N(d.qs); 
+                normUsers();
                 D.docs = N(d.docs).map(x => ({ ...x, score: +x.score })); D.logs = N(d.logs); 
                 D.courses = d.courses || []; normCourses(); normQs();
                 D.enrollments = d.enrollments || [];
