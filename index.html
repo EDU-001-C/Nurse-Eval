@@ -612,7 +612,7 @@
         
                 const V = {
             dash() {
-                const docs = D.docs || [], enr = D.enrollments || [], teach = D.teaching || [];
+                const docs = SC(), enr = D.enrollments || [], teach = D.teaching || [];
                 const scores = docs.map(d => +d.score || 0).filter(s => s > 0);
                 const avg = scores.length ? +(scores.reduce((x, y) => x + y, 0) / scores.length).toFixed(2) : '-';
                 if (ME.role === 'student') {
@@ -623,7 +623,7 @@
                     if (op && !isNaN(op) && now < op) ddl = ['#eef6ff', '#1c5d99', '🗓️ ระบบจะเปิดรับประเมินวันที่ ' + fmt(op)];
                     else if (cl && !isNaN(cl)) { const days = Math.ceil((cl - now) / 864e5); ddl = cl < now ? ['#f3f4f6', '#6b7280', '⌛ กำหนดปิดรับประเมินผ่านไปแล้ว (' + fmt(cl) + ')'] : days <= 3 ? ['#fff1e0', '#b45309', '⏰ ปิดรับประเมิน ' + fmt(cl) + ' (' + (days <= 1 ? 'เหลือไม่ถึง 1 วัน' : 'เหลืออีก ' + days + ' วัน') + ')'] : ['#e8f6f0', '#1e7a5b', '📅 ปิดรับประเมิน ' + fmt(cl) + ' (เหลืออีก ' + days + ' วัน)']; }
                     const sel = r => r.type === 'ประเมินรายวิชา' ? (r.draft ? 'ทำต่อ' : 'ประเมิน') : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์');
-                    const stt = r => r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('แล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
+                    const stt = r => r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('เสร็จแล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
                     let h = cards([['รายวิชาที่ลงทะเบียน', nCourse, '#3BB489', '#76C58C'], ['ประเมินแล้ว', n + '/' + tot, '#0288D1', '#4FC3F7'], ['ยังไม่ได้ประเมิน', left, '#F57C00', '#FFB74D']]);
                     if (ddl) h += `<div class="rounded-2xl p-4 mt-4 text-base font-medium" style="background:${ddl[0]};color:${ddl[1]}">${ddl[2]}</div>`;
                     if (!T.length) h += box(`<div class="text-gray-700">ไม่พบรายวิชาที่ลงทะเบียนสำหรับรหัส <b>${esc(ME.u)}</b><br><span class="text-sm text-gray-500">กรุณาติดต่อผู้ดูแลระบบเพื่อตรวจสอบการลงทะเบียนของคุณ</span></div>`);
@@ -671,7 +671,7 @@
             },
             pdoc() {
                 const f = S.f || ''; let rows = D.docs.filter(d => !f || d.name == f);
-                $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">เอกสารของบุคลากร</div><select class="inp !w-60" onchange="S.f=this.value;S.pdoc&&(S.pdoc.p=1);V.pdoc()"><option value="">— บุคลากรทั้งหมด —</option>${D.users.map(x => `<option ${x.n == f ? 'selected' : ''}>${x.n}</option>`).join('')}</select></div>` + dt('pdoc', [['name', 'ชื่อ'], ['type', 'ประเภท'], ['course', 'รายวิชา'], ['score', 'คะแนน'], ['date', 'วันที่']], rows));
+                $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">เอกสารของบุคลากร</div><select class="inp !w-60" onchange="S.f=this.value;S.pdoc&&(S.pdoc.p=1);V.pdoc()"><option value="">— บุคลากรทั้งหมด —</option>${D.users.map(x => `<option ${x.n == f ? 'selected' : ''}>${x.n}</option>`).join('')}</select></div>` + dt('pdoc', [['name', 'ชื่อ'], ['type', 'ประเภท', r => isNA(r) ? esc(r.type) + ' ' + badge('ไม่ได้เรียน', '#6b7280') : esc(r.type)], ['course', 'รายวิชา'], ['score', 'คะแนน', r => isNA(r) ? '-' : r.score], ['date', 'วันที่']], rows));
             },
             log() {
                 const f = S.f || ''; let rows = D.logs.filter(l => !f || l.u == f); $('#mn').innerHTML = box(`<div class="flex flex-wrap gap-2 justify-between mb-3"><div class="font-semibold">ประวัติการใช้งาน (LOG)</div><select class="inp !w-60" onchange="S.f=this.value;S.log&&(S.log.p=1);V.log()"><option value="">— ผู้ใช้ทั้งหมด —</option>${D.users.filter(x => x.pos == 'นักศึกษา').map(x => `<option ${x.n == f ? 'selected' : ''}>${x.n}</option>`).join('')}</select></div>` + dt('log', [['t', 'เวลา'], ['u', 'ผู้ใช้'], ['a', 'กิจกรรม'], ['ip', 'IP Address']], rows));
@@ -681,8 +681,9 @@
             },
             report() {
                 const f = S.rf = S.rf || { g: 'course', ty: 'ประเมินอาจารย์ผู้สอน', t: '', c: '', s: '', y: '' }, T = ME.role == 'teacher';
-                const all = D.docs.filter(d => d.type == f.ty && (!T || (d.type == 'ประเมินรายวิชา' ? myCodes().has(docCode(d)) : d.teacher == ME.u))), U = k => [...new Set(all.map(d => d[k]).filter(Boolean))].sort(), tl = [...new Map(all.filter(d => d.teacher).map(d => [d.teacher, d.tname])).entries()];
+                const all = SC().filter(d => d.type == f.ty && (!T || (d.type == 'ประเมินรายวิชา' ? myCodes().has(docCode(d)) : d.teacher == ME.u))), U = k => [...new Set(all.map(d => d[k]).filter(Boolean))].sort(), tl = [...new Map(all.filter(d => d.teacher).map(d => [d.teacher, d.tname])).entries()];
                 const rows = all.filter(d => (!f.t || d.teacher == f.t) && (!f.c || d.course == f.c) && (!f.s || d.sem == f.s) && (!f.y || d.year == f.y));
+                const naRows = (D.docs || []).filter(d => isNA(d) && d.type == f.ty && (!T || d.teacher == ME.u) && (!f.t || d.teacher == f.t) && (!f.c || d.course == f.c) && (!f.s || d.sem == f.s) && (!f.y || d.year == f.y));
                 const key = { teacher: d => d.tname || '-', course: d => d.course, sem: d => 'ภาคการศึกษา ' + (d.sem || '-') + '/' + (d.year || '-'), year: d => 'ปีการศึกษา ' + (d.year || '-') }[f.g], mp = {};
                 rows.forEach(d => { const k = key(d); (mp[k] = mp[k] || []).push(d.score); });
                 
@@ -692,7 +693,7 @@
                     return { k, n: a.length, avg, sd };
                 });
                 const enr = (D.enrollments || []).filter(e => (!f.c || eC(e) == pick(f.c)) && (!f.s || eSem(e) == f.s) && (!f.y || eY(e) == f.y) && (!T || myCodes().has(eC(e))));
-                const nEnr = new Set(enr.map(eS)).size, rr = nEnr ? Math.round(new Set(rows.map(d => String(d.uid))).size / nEnr * 100) + '%' : '-';
+                const nEnr0 = new Set(enr.map(eS)).size, nEnr = Math.max(nEnr0 - (f.t ? new Set(naRows.map(d => String(d.uid))).size : 0), 0), rr = nEnr ? Math.round(new Set(rows.map(d => String(d.uid))).size / nEnr * 100) + '%' : '-';
                 const iq = {}, iqt = {}; rows.forEach(d => (Array.isArray(d.answers) ? d.answers : []).forEach(a => { const kk = a.t ? 't:' + a.t : a.q; (iq[kk] = iq[kk] || []).push(a.v); if (a.t) iqt[kk] = a.t; }));
                 const rated = v => v.filter(x => x > 0);
                 const itemRows = Object.entries(iq).map(([id, a]) => ({ k: iqt[id] || qText(D.qs.find(x => x.id == id) || {}) || 'ข้อ ' + id, n: rated(a).length, na: a.length - rated(a).length, avg: rated(a).length ? +(rated(a).reduce((x, y) => x + y, 0) / rated(a).length).toFixed(2) : '-' }));
@@ -711,7 +712,7 @@
                         <p class="text-sm text-gray-500 mt-1">วันที่พิมพ์รายงาน: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} | ประเภท: ${f.ty}</p>
                     </div>`;
                 html += box(`<div class="font-semibold mb-3 no-print">ตัวกรองรายงาน</div><div class="grid grid-cols-2 lg:grid-cols-6 gap-3">${sl('g', 'จัดกลุ่มตาม', [['course', 'รายวิชา'], ['teacher', 'รายอาจารย์'], ['sem', 'รายภาคการศึกษา'], ['year', 'รายปีการศึกษา']], 0)}${sl('ty', 'ประเภท', ['ประเมินอาจารย์ผู้สอน', 'ประเมินรายวิชา'], 0)}${T ? '' : sl('t', 'อาจารย์', tl)}${sl('c', 'รายวิชา', U('course'))}${sl('s', 'ภาคการศึกษา', ['1', '2', '3'])}${sl('y', 'ปีการศึกษา', U('year'))}</div>`) + 
-                '<div class="mt-4">' + cards([['จำนวนการประเมิน', rows.length, '#3BB489', '#76C58C'], ['คะแนนเฉลี่ยรวม', rows.length ? tot : '-', '#0288D1', '#26A69A'], ['อัตราตอบกลับ', rr, '#F57C00', '#FFCA28'], ['ระดับผลประเมิน', rows.length ? lv(tot, 1) : '-', '#4A2C6D', '#8e6bb8']]) + '</div>' + 
+                '<div class="mt-4">' + cards([['จำนวนการประเมิน', rows.length, '#3BB489', '#76C58C'], ['คะแนนเฉลี่ยรวม', rows.length ? tot : '-', '#0288D1', '#26A69A'], ['อัตราตอบกลับ', rr, '#F57C00', '#FFCA28'], ['ระดับผลประเมิน', rows.length ? lv(tot, 1) : '-', '#4A2C6D', '#8e6bb8']]) + '</div>' + (naRows.length ? `<div class="text-sm text-gray-500 mt-2 no-print">ℹ️ ไม่นับรวมในรายงานนี้: นักศึกษา ${new Set(naRows.map(d => String(d.uid))).size} คน แจ้งว่าไม่ได้เรียนกับอาจารย์ (${naRows.length} รายการ) ${f.t ? '— หักออกจากฐานอัตราตอบกลับแล้ว' : ''}</div>` : '') + 
                 `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">` +
                 `<div class="lg:col-span-2">` + box('<div class="font-semibold mb-2">คะแนนเฉลี่ย (เต็ม 5)</div>' + cvs('cv1')).replace('mt-4','') + `</div>` +
                 `<div>` + box('<div class="font-semibold mb-2">สัดส่วนผู้ประเมินตามกลุ่ม</div>' + cvs('cv2')).replace('mt-4','') + `</div>` +
@@ -774,9 +775,9 @@
         
         // ===== Analytics =====
         const getAnalytics = () => {
-            const total = (D.docs || []).length;
-            const byType = {}; (D.docs || []).forEach(d => { byType[d.type] = (byType[d.type] || 0) + 1; });
-            const scores = (D.docs || []).map(d => d.score || 0).filter(s => s > 0);
+            const total = SC().length;
+            const byType = {}; SC().forEach(d => { byType[d.type] = (byType[d.type] || 0) + 1; });
+            const scores = SC().map(d => d.score || 0).filter(s => s > 0);
             const avg = scores.length ? (scores.reduce((a,b) => a+b) / scores.length).toFixed(2) : 0;
             const [min, max] = [Math.min(...scores), Math.max(...scores)];
             return { total, byType, avg, min, max, count: scores.length };
@@ -865,15 +866,15 @@
         V.docs = () => {
             const T = myTasks();
             const tot = T.reduce((s, r) => s + r.units, 0), n = T.reduce((s, r) => s + r.got, 0), pc = tot ? Math.round(n / tot * 100) : 0;
-            const st = r => r.done ? badge('ประเมินแล้ว', '#3BB489') : r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge('ประเมินแล้ว ' + r.got + '/' + r.units + ' ท่าน', '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
-            $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div><div class="text-xs text-gray-500 mt-2">นับรายวิชา 1 รายการ และอาจารย์ผู้สอนรายท่าน ท่านละ 1 รายการ</div>`).replace('mt-4', '') +
-                box('<div class="tbl-docs">' + dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname)], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', st]], T, { act: r => r.done ? '' : `<button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${r.type === 'ประเมินรายวิชา' ? (r.draft ? 'ทำต่อ' : 'ประเมิน') : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์')}</button>` }) + '</div>') +
+            const st = r => r.done ? badge('ประเมินแล้ว', '#3BB489') : r.done && r.na === r.units ? badge('ไม่ได้เรียนทุกท่าน', '#6b7280') : r.type === 'ประเมินอาจารย์ผู้สอน' && r.got ? badge(r.done ? 'ประเมินแล้ว' : 'เสร็จแล้ว ' + r.got + '/' + r.units + ' ท่าน', r.done ? '#3BB489' : '#0288D1') : r.draft ? badge('มีร่างค้างอยู่', '#8e6bb8') : badge('ยังไม่ประเมิน', '#F57C00');
+            $('#mn').innerHTML = box(`<div class="font-semibold mb-2">ความคืบหน้าการประเมินของฉัน: ${n}/${tot} รายการ (${pc}%)</div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full" style="width:${pc}%;background:#3BB489"></div></div><div class="text-xs text-gray-500 mt-2">นับรายวิชา 1 รายการ และอาจารย์ผู้สอนรายท่าน ท่านละ 1 รายการ (ท่านที่แจ้งว่าไม่ได้เรียน นับว่าเสร็จ)</div>`).replace('mt-4', '') +
+                box('<div class="tbl-docs">' + dt('docs', [['code', 'รายวิชา', r => esc(r.code + ' ' + r.name)], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้สอน', r => esc(r.tname)], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.yr)], ['done', 'สถานะ', st]], T, { act: r => r.done ? (r.type === 'ประเมินอาจารย์ผู้สอน' && r.na ? `<button class="btn !px-4 !py-1.5" style="background:#fff;color:#0288D1;border:1px solid #0288D1;white-space:nowrap" onclick="doEvalI(${r.i})">ดูรายชื่อ</button>` : '') : `<button class="btn !px-4 !py-1.5" style="background:#3BB489;white-space:nowrap" onclick="doEvalI(${r.i})">${r.type === 'ประเมินรายวิชา' ? (r.draft ? 'ทำต่อ' : 'ประเมิน') : (r.got ? 'ประเมินต่อ' : 'เลือกอาจารย์')}</button>` }) + '</div>') +
                 (T.length ? '' : box('<p class="text-center text-gray-500">ยังไม่พบรายวิชาที่ลงทะเบียน กรุณาติดต่อผู้ดูแลระบบ</p>'));
         };
         
         Object.assign(V, {
             myeval() {
-                const rows = D.docs.filter(d => d.uid === ME.u);
+                const rows = SC().filter(d => d.uid === ME.u);
                 if (!rows.length) {
                     $('#mn').innerHTML = box('<p class="text-center text-gray-500 py-4">ยังไม่มีแบบประเมินที่ส่งแล้ว</p>');
                     return;
@@ -890,7 +891,7 @@
                 $('#mn').innerHTML = box(head('ผลประเมินของฉัน') + dt('myeval', [['code', 'รายวิชา'], ['type', 'ประเภท'], ['teacher', 'อาจารย์'], ['score', 'คะแนนเฉลี่ย', r => r.score.toFixed(2)], ['date', 'วันที่ส่ง'], ['comment', 'ข้อเสนอแนะ', r => r.comment ? r.comment.substring(0,50)+'...' : '-']], items));
             },
             myeval() {
-                const rows = (D.docs || []).filter(d => d.uid === ME.u);
+                const rows = SC().filter(d => d.uid === ME.u);
                 if (!rows.length) {
                     $('#mn').innerHTML = box('<div class="text-center text-gray-500 py-8">ยังไม่มีแบบประเมินที่ส่งแล้ว</div>');
                     return;
@@ -911,7 +912,7 @@
                     $('#mn').innerHTML = box('<div class="text-center text-gray-500 py-8">คุณไม่ได้มอบหมายสอนรายวิชาใด</div>');
                     return;
                 }
-                let rows = (D.docs || []).filter(d => myCodes.has((d.courseCode || '').toUpperCase()));
+                let rows = SC().filter(d => myCodes.has((d.courseCode || '').toUpperCase()));
                 const f = S.f || '';
                 if (f) rows = rows.filter(d => d.courseCode === f);
                 
@@ -941,21 +942,53 @@
         });
 
             
+        // รายการที่นักศึกษาแจ้งว่า "ไม่ได้เรียนกับอาจารย์ท่านนี้" (status = ไม่ได้เรียน): นับว่าจัดการอาจารย์ท่านนั้นเสร็จแล้ว แต่ไม่นำมาคิดคะแนน/สถิติใดๆ
+        const NA_ST = 'ไม่ได้เรียน', isNA = d => !!d && String(d.status || '').trim() === NA_ST, SC = () => (D.docs || []).filter(d => !isNA(d));
+        const tNA = (code, sem, yr, tid) => (D.docs || []).some(d => isNA(d) && d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == String(tid));
         const tDone = (code, sem, yr, tid) => (D.docs || []).some(d => d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == String(tid));
         // รายชื่ออาจารย์ของวิชา: เลือกประเมินทีละท่าน เสร็จแล้วกลับมาที่รายชื่อ
+        // นักศึกษาแจ้งว่าไม่ได้เรียนกับอาจารย์ท่านนี้ → บันทึกสถานะ (ไม่มีคะแนน) เพื่อให้ถือว่าเสร็จสำหรับท่านนั้น และไม่นำไปคิดผลประเมิน
+        async function markNotTaught(code, sem, yr, tid) {
+            const nm = uName(tid), c = courseOf(code);
+            const r = await Swal.fire({
+                icon: 'question', title: 'ยืนยันว่าไม่ได้เรียนกับอาจารย์ท่านนี้?', width: 'min(560px, 96vw)', showCancelButton: true, confirmButtonText: 'ยืนยัน ไม่ได้เรียน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#6b7280',
+                html: `<div class="text-left text-base"><b>${esc(nm)}</b><br>${esc(code + ' ' + (c.name || ''))} · ภาค ${esc(sem + '/' + yr)}<div class="mt-3 text-sm text-gray-600">ระบบจะ <b>ไม่นำอาจารย์ท่านนี้มาคิดในการประเมิน</b> ของคุณ และข้ามรายการนี้ให้<br>หากกดผิด คุณ <b>ยกเลิกการแจ้งได้เอง</b> ภายในช่วงเวลาที่เปิดรับประเมิน</div></div>`
+            });
+            if (!r.isConfirmed) return;
+            const doc = { id: Date.now() + Math.random(), uid: ME.u, name: ME.n, date: new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }), sem, year: yr, type: 'ประเมินอาจารย์ผู้สอน', course: code + (c.name ? ' - ' + c.name : ''), courseCode: code, teacher: tid, tname: nm, score: 0, answers: [], comment: '', status: NA_ST };
+            let res; await busy(async () => { res = await post({ action: 'submitDoc', doc }); });
+            if (!res.ok) return err('บันทึกไม่สำเร็จ: ' + (res.error || 'กรุณาลองใหม่'));
+            D.docs.push(doc); draftClear(DK(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid)); save(); log('แจ้งไม่ได้เรียนกับอาจารย์: ' + nm + ' ' + code);
+            ok('บันทึกแล้ว ไม่นับอาจารย์ท่านนี้ในการประเมิน');
+        }
+        // ยกเลิกการแจ้ง "ไม่ได้เรียนกับอาจารย์ท่านนี้" (ทำได้ภายในช่วงเวลาที่เปิดรับประเมิน) → อาจารย์ท่านนั้นกลับมารอประเมินตามปกติ
+        async function undoNotTaught(code, sem, yr, tid) {
+            if (!canEval()) { await err('หมดช่วงเวลารับประเมินแล้ว ไม่สามารถยกเลิกได้ กรุณาติดต่อผู้ดูแลระบบ'); return false; }
+            const nm = uName(tid), c = courseOf(code);
+            const r = await Swal.fire({
+                icon: 'question', title: 'ยกเลิกการแจ้งว่าไม่ได้เรียน?', width: 'min(560px, 96vw)', showCancelButton: true, confirmButtonText: 'ยืนยัน ยกเลิกการแจ้ง', cancelButtonText: 'ไม่ยกเลิก', confirmButtonColor: '#3BB489',
+                html: `<div class="text-left text-base"><b>${esc(nm)}</b><br>${esc(code + ' ' + (c.name || ''))} · ภาค ${esc(sem + '/' + yr)}<div class="mt-3 text-sm text-gray-600">อาจารย์ท่านนี้จะกลับมาอยู่ในรายการที่ต้องประเมินของคุณ</div></div>`
+            });
+            if (!r.isConfirmed) return false;
+            let res; await busy(async () => { res = await post({ action: 'undoNA', u: ME.u, pw: ME.p, courseCode: code, sem, year: yr, teacher: tid }); });
+            if (!res.ok) { await err('ยกเลิกไม่สำเร็จ: ' + (res.error || 'กรุณาลองใหม่')); return false; }
+            D.docs = (D.docs || []).filter(d => !(isNA(d) && d.uid == ME.u && d.type == 'ประเมินอาจารย์ผู้สอน' && docCode(d) == code && d.sem == sem && d.year == yr && String(d.teacher || '') == String(tid)));
+            save(); log('ยกเลิกการแจ้งไม่ได้เรียนกับอาจารย์: ' + nm + ' ' + code);
+            ok('ยกเลิกแล้ว อาจารย์ท่านนี้กลับมารอประเมิน'); return true;
+        }
         async function teacherList(code, sem, yr, teachers) {
             const c = courseOf(code);
             while (true) {
-                const rows = teachers.map(tid => ({ tid, done: tDone(code, sem, yr, tid), draft: hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid) })), k = rows.filter(r => r.done).length;
-                if (k === rows.length) break;
-                let chosen = null;
+                const rows = teachers.map(tid => ({ tid, done: tDone(code, sem, yr, tid), na: tNA(code, sem, yr, tid), draft: hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid) })), k = rows.filter(r => r.done).length, kn = rows.filter(r => r.na).length;
+                if (k === rows.length && !rows.some(r => r.na)) break;
+                let chosen = null, act = '';
                 await Swal.fire({
                     title: 'เลือกอาจารย์ที่จะประเมิน', width: 'min(780px, 96vw)', customClass: { popup: 'eval-popup' }, showConfirmButton: false, showCancelButton: true, cancelButtonText: 'ปิด',
-                    html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)} · ประเมินแล้ว <b>${k}/${rows.length}</b> ท่าน</div><div class="text-sm text-gray-500 mb-2">ประเมินทีละท่าน และให้คะแนนแต่ละท่านแยกกัน ส่งแล้วจะกลับมาที่รายชื่อนี้</div><div class="border rounded-xl">${rows.map(r => `<div class="flex items-center justify-between gap-3 px-4 py-3 border-b" style="${r.done ? 'background:#f9fafb' : ''}"><span class="text-lg" style="${r.done ? 'color:#9ca3af' : ''}">${esc(uName(r.tid))}${r.draft && !r.done ? ' <small style="color:#F57C00">· มีร่างค้างอยู่</small>' : ''}</span>${r.done ? '<span class="font-semibold" style="color:#3BB489;white-space:nowrap">✓ ประเมินแล้ว</span>' : `<button type="button" class="btn pick-t" data-t="${esc(r.tid)}" style="background:#3BB489;white-space:nowrap">ประเมิน</button>`}</div>`).join('')}</div></div>`,
-                    didOpen: () => document.querySelectorAll('.pick-t').forEach(b => b.onclick = () => { chosen = b.dataset.t; Swal.close(); })
+                    html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(code)} ${esc(c.name)}</b><br>ภาคการศึกษา ${esc(sem)}/${esc(yr)} · ประเมินแล้ว <b>${k - kn}</b> · ไม่ได้เรียน <b>${kn}</b> · ทั้งหมด <b>${rows.length}</b> ท่าน</div><div class="text-sm text-gray-500 mb-2">ประเมินทีละท่าน และให้คะแนนแต่ละท่านแยกกัน ส่งแล้วจะกลับมาที่รายชื่อนี้</div><div class="border rounded-xl">${rows.map(r => `<div class="flex items-center justify-between gap-3 px-4 py-3 border-b" style="${r.done ? 'background:#f9fafb' : ''}"><span class="text-lg" style="${r.done ? 'color:#9ca3af' : ''}">${esc(uName(r.tid))}${r.draft && !r.done ? ' <small style="color:#F57C00">· มีร่างค้างอยู่</small>' : ''}</span>${r.na ? `<div class="flex flex-wrap items-center gap-3 justify-end"><span class="font-semibold" style="color:#6b7280">— ไม่ได้เรียนกับท่านนี้</span><button type="button" class="btn pick-t" data-t="${esc(r.tid)}" data-a="undo" style="background:#fff;color:#0288D1;border:1px solid #0288D1;white-space:nowrap">ยกเลิกการแจ้ง</button></div>` : r.done ? '<span class="font-semibold" style="color:#3BB489;white-space:nowrap">✓ ประเมินแล้ว</span>' : `<div class="flex flex-wrap gap-2 justify-end"><button type="button" class="btn pick-t" data-t="${esc(r.tid)}" data-a="eval" style="background:#3BB489;white-space:nowrap">ประเมิน</button><button type="button" class="btn pick-t" data-t="${esc(r.tid)}" data-a="na" style="background:#fff;color:#4b5563;border:1px solid #9ca3af;white-space:nowrap">ไม่ได้เรียนกับอาจารย์ท่านนี้</button></div>`}</div>`).join('')}</div></div>`,
+                    didOpen: () => document.querySelectorAll('.pick-t').forEach(b => b.onclick = () => { chosen = b.dataset.t; act = b.dataset.a; Swal.close(); })
                 });
                 if (!chosen) break;
-                await doEval(code, 'ประเมินอาจารย์ผู้สอน', [chosen], sem, yr);
+                if (act === 'na') await markNotTaught(code, sem, yr, chosen); else if (act === 'undo') await undoNotTaught(code, sem, yr, chosen); else await doEval(code, 'ประเมินอาจารย์ผู้สอน', [chosen], sem, yr);
             }
             refreshMine();
         }
@@ -972,7 +1005,7 @@
                 const code = eC(e), sem = eSem(e), yr = eY(e), nm = courseOf(code).name;
                 T.push({ code, name: nm, sem, yr, type: 'ประเมินรายวิชา', teachers: [], tname: '-', units: 1, got: D.docs.some(d => d.uid == ME.u && d.type == 'ประเมินรายวิชา' && docCode(d) == code && d.sem == sem && d.year == yr) ? 1 : 0, draft: hasDraft(code, 'ประเมินรายวิชา', sem, yr, '') });
                 const teachers = (D.teaching || []).filter(t => eC(t) == code && (!eSem(t) || eSem(t) == sem) && (!eY(t) || eY(t) == yr)).map(t => tI(t)).filter((x, i, a) => x && a.indexOf(x) === i);
-                if (teachers.length) T.push({ code, name: nm, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.length + ' ท่าน', units: teachers.length, got: teachers.filter(tid => tDone(code, sem, yr, tid)).length, draft: teachers.some(tid => !tDone(code, sem, yr, tid) && hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid)) });
+                if (teachers.length) T.push({ code, name: nm, sem, yr, type: 'ประเมินอาจารย์ผู้สอน', teachers, tname: teachers.length + ' ท่าน', units: teachers.length, got: teachers.filter(tid => tDone(code, sem, yr, tid)).length, na: teachers.filter(tid => tNA(code, sem, yr, tid)).length, draft: teachers.some(tid => !tDone(code, sem, yr, tid) && hasDraft(code, 'ประเมินอาจารย์ผู้สอน', sem, yr, tid)) });
             });
             T.forEach((r, i) => { r.i = i; r.done = r.got >= r.units; });
             MYT = T; return T;
@@ -987,7 +1020,7 @@
             const cn = d => { const c = docCode(d); return c + ' ' + (courseOf(c).name || ''); };
             $('#mn').innerHTML = box(`<div class="font-semibold">ประวัติการประเมินของฉัน</div><div class="text-sm text-gray-500 mt-1">ส่งแล้ว <b>${HIST.length}</b> รายการ · ใช้ตรวจสอบว่าระบบบันทึกแบบประเมินของคุณแล้ว (ดูได้อย่างเดียว ไม่สามารถแก้ไขหรือส่งซ้ำได้)</div>`)
                 + (HIST.length
-                    ? box('<div class="tbl-docs">' + dt('hist', [['date', 'ส่งเมื่อ', r => esc(sentAt(r))], ['code', 'รายวิชา', r => esc(cn(r))], ['type', 'ประเภท', r => badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้ถูกประเมิน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.year)], ['score', 'คะแนนเฉลี่ย', r => isFinite(r.score) && r.score > 0 ? Number(r.score).toFixed(2) : '-']], HIST, { act: r => `<button class="btn !px-4 !py-1.5" style="background:#0288D1;white-space:nowrap" onclick="histView(${r.__i})">ดูคำตอบ</button>` }) + '</div>')
+                    ? box('<div class="tbl-docs">' + dt('hist', [['date', 'ส่งเมื่อ', r => esc(sentAt(r))], ['code', 'รายวิชา', r => esc(cn(r))], ['type', 'ประเภท', r => isNA(r) ? badge('ไม่ได้เรียนกับอาจารย์ท่านนี้', '#6b7280') : badge(r.type, r.type == 'ประเมินรายวิชา' ? '#0288D1' : '#F57C00')], ['tname', 'อาจารย์ผู้ถูกประเมิน', r => esc(r.tname || '-')], ['sem', 'ภาค/ปี', r => esc(r.sem + '/' + r.year)], ['score', 'คะแนนเฉลี่ย', r => isFinite(r.score) && r.score > 0 ? Number(r.score).toFixed(2) : '-']], HIST, { act: r => `<button class="btn !px-4 !py-1.5" style="background:#0288D1;white-space:nowrap" onclick="histView(${r.__i})">ดูคำตอบ</button>` }) + '</div>')
                     : box('<p class="text-center text-gray-500 py-4">ยังไม่มีแบบประเมินที่ส่ง · ไปที่เมนู “แบบประเมินของฉัน” เพื่อเริ่มประเมิน</p>'));
         };
         function histView(i) {
@@ -995,11 +1028,11 @@
             const ans = Array.isArray(d.answers) ? d.answers : [], c = docCode(d);
             const lab = v => v > 0 ? `<b style="color:#1e7a5b;font-size:1.15rem">${v}</b>` : '<span style="color:#6b7280">ประเมินไม่ได้</span>';
             Swal.fire({
-                title: 'รายละเอียดที่ส่งแล้ว', width: 'min(900px, 96vw)', customClass: { popup: 'eval-popup' }, confirmButtonText: 'ปิด', confirmButtonColor: '#3BB489',
-                html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(c + ' ' + (courseOf(c).name || ''))}</b><br>${esc(d.type)}${d.tname ? ' · ' + esc(d.tname) : ''}<br>ภาค ${esc(d.sem + '/' + d.year)} · ส่งเมื่อ ${esc(sentAt(d))}${isFinite(d.score) && d.score > 0 ? ' · คะแนนเฉลี่ย <b>' + Number(d.score).toFixed(2) + '</b>' : ''}</div>`
-                    + (ans.length ? `<div class="border rounded-xl">${ans.map(a => `<div class="flex items-center justify-between gap-4 px-4 py-2.5 border-b"><span class="text-base">${esc(a.t || qText((D.qs || []).find(q => q.id == a.q) || {}) || 'ข้อ ' + a.q)}</span>${lab(a.v)}</div>`).join('')}</div>` : '<div class="text-gray-500">ไม่มีรายละเอียดรายข้อ</div>')
+                title: 'รายละเอียดที่ส่งแล้ว', width: 'min(900px, 96vw)', customClass: { popup: 'eval-popup' }, confirmButtonText: 'ปิด', confirmButtonColor: '#3BB489', showDenyButton: isNA(d), denyButtonText: 'ยกเลิกการแจ้งว่าไม่ได้เรียน', denyButtonColor: '#0288D1',
+                html: `<div class="text-left"><div class="p-4 rounded-xl mb-3 text-base" style="background:#e8f6f0"><b class="text-lg">${esc(c + ' ' + (courseOf(c).name || ''))}</b><br>${esc(d.type)}${d.tname ? ' · ' + esc(d.tname) : ''}<br>ภาค ${esc(d.sem + '/' + d.year)} · ส่งเมื่อ ${esc(sentAt(d))}${!isNA(d) && isFinite(d.score) && d.score > 0 ? ' · คะแนนเฉลี่ย <b>' + Number(d.score).toFixed(2) + '</b>' : ''}</div>`
+                    + (isNA(d) ? '<div class="p-4 rounded-xl text-base" style="background:#f3f4f6;color:#4b5563">คุณแจ้งว่า <b>ไม่ได้เรียนกับอาจารย์ท่านนี้</b> ระบบจึงไม่นำมาคิดในผลประเมิน</div>' : ans.length ? `<div class="border rounded-xl">${ans.map(a => `<div class="flex items-center justify-between gap-4 px-4 py-2.5 border-b"><span class="text-base">${esc(a.t || qText((D.qs || []).find(q => q.id == a.q) || {}) || 'ข้อ ' + a.q)}</span>${lab(a.v)}</div>`).join('')}</div>` : '<div class="text-gray-500">ไม่มีรายละเอียดรายข้อ</div>')
                     + (d.comment ? `<div class="mt-3"><b>ข้อเสนอแนะ</b><div class="p-3 rounded-lg mt-1 whitespace-pre-wrap" style="background:#f9fafb">${esc(d.comment)}</div></div>` : '') + '</div>'
-            });
+            }).then(async r => { if (r.isDenied && await undoNotTaught(c, d.sem, d.year, d.teacher)) V.hist(); });
         }
         let MYT = [];
         const doEvalI = i => { const r = MYT[i]; if (!r) return; return r.type === 'ประเมินรายวิชา' ? doEval(r.code, r.type, [], r.sem, r.yr) : teacherList(r.code, r.sem, r.yr, r.teachers); };
