@@ -29,6 +29,7 @@
         .btn:hover { filter: brightness(.95); transform: translateY(-1px); }
         th { cursor: pointer; white-space: nowrap; }
         .swal2-popup { font-family: 'Sarabun'; }
+        .home-btn:hover { background: #2f9e76 !important; }
         .rt { position: relative; display: inline-block; }
         .rt input { position: absolute; opacity: 0; width: 100%; height: 100%; left: 0; top: 0; margin: 0; cursor: pointer; }
         .rt span { display: inline-flex; width: 52px; height: 52px; align-items: center; justify-content: center; border: 2px solid #d1d5db; border-radius: 14px; font-size: 1.15rem; font-weight: 600; color: #4b5563; background: #fff; transition: .15s; }
@@ -459,7 +460,7 @@
                     <header class="bg-white/80 backdrop-blur sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-sm no-print">
                         <button onclick="tgSidebar()" class="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors">${ico(I.menu)}</button>
                         <div class="font-semibold flex-1 truncate text-lg">${menus().find(m => m[0] == p)[1]}</div>
-                        <button onclick="go('dash')" title="กลับหน้าแดชบอร์ด" aria-label="กลับหน้าแดชบอร์ด" class="p-2 hover:bg-gray-100 rounded-lg text-[#3BB489] transition-colors shrink-0">${ico(I.home)}</button><div class="text-sm text-right"><div class="font-medium">${ME.n}</div>${badge(ME.role == 'admin' ? 'ผู้ดูแลระบบ' : ME.pos, '#3BB489')}</div>
+                        <button onclick="go('dash')" title="กลับหน้าแดชบอร์ด" aria-label="กลับหน้าแดชบอร์ด" class="home-btn shrink-0 flex items-center justify-center w-10 h-10 rounded-xl text-white shadow-sm transition-all hover:-translate-y-px active:translate-y-0" style="background:#3BB489"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor"><path d="M12 2.6 2.4 10.2a1.1 1.1 0 0 0-.4.9v8.3A2 2 0 0 0 4 21.4h5.2v-5.6a1.2 1.2 0 0 1 1.2-1.2h3.2a1.2 1.2 0 0 1 1.2 1.2v5.6H19.6a2 2 0 0 0 2-2V11.1a1.1 1.1 0 0 0-.4-.9Z"/></svg></button><div class="text-sm text-right"><div class="font-medium">${ME.n}</div>${badge(ME.role == 'admin' ? 'ผู้ดูแลระบบ' : ME.pos, '#3BB489')}</div>
                     </header>
                     <main id="mn" class="p-4 md:p-6 flex-1"></main>
                     <footer class="w-full bg-gray-200 text-gray-600 text-center text-sm py-3 no-print">ระบบฐานข้อมูลบุคลากร ${D.inst.org}</footer>
